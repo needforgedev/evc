@@ -33,6 +33,14 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Monorepo: build artifacts live under apps/*/ and packages/* — ignore them
+# everywhere, not just at the old repo root.
+**/build/
+**/.dart_tool/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
 # Symbolication related
 app.*.symbols
 

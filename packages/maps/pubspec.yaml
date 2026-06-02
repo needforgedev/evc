@@ -1,0 +1,23 @@
+name: evc_maps
+description: "EVC maps + location abstraction over the chosen provider (Google Maps now, MapLibre/OSM later)."
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=1.17.0"
+
+# Part of the EVC pub workspace (see repo-root pubspec.yaml).
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Provider plugins (google_maps_flutter, geolocator, etc.) get added here.
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:

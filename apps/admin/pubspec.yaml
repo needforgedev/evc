@@ -1,0 +1,33 @@
+name: evcadmin
+description: "EVC Admin — ops app (approve drivers, live ops map, fleet, pricing, support, analytics)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+# Part of the EVC pub workspace (see repo-root pubspec.yaml).
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Shared EVC packages (single source of truth for code).
+  evc_core:
+    path: ../../packages/core
+  evc_ui_kit:
+    path: ../../packages/ui_kit
+  evc_maps:
+    path: ../../packages/maps
+  evc_realtime:
+    path: ../../packages/realtime
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

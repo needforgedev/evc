@@ -1,0 +1,24 @@
+name: evc_realtime
+description: "EVC realtime — websocket / Supabase Realtime trip-state client."
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=1.17.0"
+
+# Part of the EVC pub workspace (see repo-root pubspec.yaml).
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  evc_core:
+    path: ../core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
