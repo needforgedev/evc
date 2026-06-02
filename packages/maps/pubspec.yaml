@@ -13,6 +13,10 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
+  evc_core:
+    path: ../core
+  evc_ui_kit:
+    path: ../ui_kit
   # Provider plugins (google_maps_flutter, geolocator, etc.) get added here.
 
 dev_dependencies:

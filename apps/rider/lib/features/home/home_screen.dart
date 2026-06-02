@@ -7,8 +7,9 @@ import '../../mock/mock_data.dart';
 import '../../state/booking_controller.dart';
 import '../booking/ride_options_screen.dart';
 import '../profile/profile_screen.dart';
+import 'package:evc_maps/evc_maps.dart';
+
 import '../search/destination_search_screen.dart';
-import '../../widgets/placeholder_map.dart';
 
 /// Home — map + "where to?" booking entry point.
 class HomeScreen extends ConsumerWidget {

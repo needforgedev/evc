@@ -6,7 +6,8 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 import '../../mock/mock_data.dart';
 import '../../state/booking_controller.dart';
 import '../../state/trip_controller.dart';
-import '../../widgets/placeholder_map.dart';
+import 'package:evc_maps/evc_maps.dart';
+
 import '../trip/trip_screen.dart';
 
 /// Choose a ride tier + payment, see the upfront fare, and confirm.

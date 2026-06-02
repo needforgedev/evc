@@ -10,3 +10,7 @@ export 'src/models/ride_tier.dart';
 export 'src/models/driver_profile.dart';
 export 'src/models/trip.dart';
 export 'src/models/payment_method.dart';
+export 'src/models/rider_info.dart';
+export 'src/models/ride_request.dart';
+export 'src/models/charging_station.dart';
+export 'src/models/earnings.dart';

@@ -5,7 +5,8 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../state/booking_controller.dart';
 import '../../state/trip_controller.dart';
-import '../../widgets/placeholder_map.dart';
+import 'package:evc_maps/evc_maps.dart';
+
 import '../payment/payment_screen.dart';
 import 'widgets/driver_card.dart';
 
