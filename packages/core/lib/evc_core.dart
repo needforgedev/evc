@@ -14,3 +14,7 @@ export 'src/models/rider_info.dart';
 export 'src/models/ride_request.dart';
 export 'src/models/charging_station.dart';
 export 'src/models/earnings.dart';
+export 'src/models/fleet_vehicle.dart';
+export 'src/models/driver_record.dart';
+export 'src/models/admin_trip.dart';
+export 'src/models/support_ticket.dart';
