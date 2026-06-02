@@ -1,24 +1,12 @@
 /// EVC shared core.
 ///
-/// Models, backend client, auth, config and DI live here and are compiled into
-/// all three apps. For now it only carries the app-identity enum; Supabase
-/// client, Trip/User/Vehicle models, and Riverpod providers land here next.
+/// Domain models, app identity, and (soon) the Supabase client, auth and
+/// Riverpod DI — compiled into all three apps as the single source of truth.
 library;
 
-/// Which of the three EVC apps a given build is.
-///
-/// All three share one codebase and one Supabase backend; this identifies the
-/// role so shared code can branch on it (theming, routing, RLS-scoped queries).
-enum EvcApp {
-  rider('EVC Rider', 'Book a zero-emission cab in Dubai'),
-  driver('EVC Driver', 'Drive electric. Earn smart.'),
-  admin('EVC Admin', 'Run the network');
-
-  const EvcApp(this.displayName, this.tagline);
-
-  /// Human-facing app name, e.g. "EVC Rider".
-  final String displayName;
-
-  /// Short brand tagline shown on the landing screen.
-  final String tagline;
-}
+export 'src/app_identity.dart';
+export 'src/models/place.dart';
+export 'src/models/ride_tier.dart';
+export 'src/models/driver_profile.dart';
+export 'src/models/trip.dart';
+export 'src/models/payment_method.dart';
