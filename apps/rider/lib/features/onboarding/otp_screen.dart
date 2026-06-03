@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../state/onboarding_controller.dart';
+import '../../state/rider_account.dart';
 import '../home/home_screen.dart';
 
-/// 4-digit OTP verification (mock — any 4 digits work; hint shows "1234").
-class OtpScreen extends StatefulWidget {
-  const OtpScreen({super.key, required this.phone});
-
-  final String phone;
+/// Verification step. Dev OTP: any number signs in with the fixed code (7464).
+/// On success the rider account is created (real Supabase rows, or mock).
+class OtpScreen extends ConsumerStatefulWidget {
+  const OtpScreen({super.key});
 
   @override
-  State<OtpScreen> createState() => _OtpScreenState();
+  ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   static const _length = 4;
+  bool _busy = false;
 
   String get _code => _controller.text;
 
@@ -34,15 +38,34 @@ class _OtpScreenState extends State<OtpScreen> {
     super.dispose();
   }
 
-  void _verify() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-      (route) => false,
-    );
+  Future<void> _verify() async {
+    if (!verifyDevOtp(_code)) {
+      _focus.unfocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect code. Try the demo code 7464.')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ref.read(onboardingControllerProvider.notifier).submit();
+      ref.invalidate(currentRiderProvider);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final phone = ref.watch(onboardingControllerProvider).phone;
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -51,18 +74,14 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Verify your number',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
+              Text('Verify your number',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              Text(
-                'Enter the code sent to ${widget.phone}',
-                style: const TextStyle(color: EvcColors.slate, fontSize: 15),
-              ),
+              Text('Enter the code sent to $phone',
+                  style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 32),
               GestureDetector(
                 onTap: _focus.requestFocus,
@@ -92,23 +111,22 @@ class _OtpScreenState extends State<OtpScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  const Text('Didn\'t get it? ',
-                      style: TextStyle(color: EvcColors.slate)),
-                  Text('Resend in 0:24',
-                      style: TextStyle(
-                          color: EvcColors.ink, fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  const Text('Demo code: 1234',
-                      style: TextStyle(color: EvcColors.slate, fontSize: 12)),
-                ],
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Text('Demo code: 7464',
+                    style: TextStyle(color: EvcColors.slate, fontSize: 12)),
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _code.length == _length ? _verify : null,
-                child: const Text('Verify'),
+                onPressed: (_code.length == _length && !_busy) ? _verify : null,
+                child: _busy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white))
+                    : const Text('Verify & continue'),
               ),
             ],
           ),
@@ -132,10 +150,8 @@ class _OtpScreenState extends State<OtpScreen> {
           width: isCursor ? 1.8 : 1,
         ),
       ),
-      child: Text(
-        filled ? _code[i] : '',
-        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
-      ),
+      child: Text(filled ? _code[i] : '',
+          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
     );
   }
 }

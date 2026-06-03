@@ -1,25 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import 'otp_screen.dart';
+import '../../state/onboarding_controller.dart';
+import 'details_screen.dart';
 
-/// Phone-number entry (UAE) — first step of OTP sign-in.
-class PhoneScreen extends StatefulWidget {
+/// Phone-number entry (UAE) — first onboarding step. Any number works.
+class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
 
   @override
-  State<PhoneScreen> createState() => _PhoneScreenState();
+  ConsumerState<PhoneScreen> createState() => _PhoneScreenState();
 }
 
-class _PhoneScreenState extends State<PhoneScreen> {
+class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _controller = TextEditingController();
-  bool get _valid => _controller.text.replaceAll(' ', '').length >= 9;
+  bool get _valid => _controller.text.length >= 9;
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _continue() {
+    ref.read(onboardingControllerProvider.notifier)
+        .setPhone('+971${_controller.text}');
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const DetailsScreen()),
+    );
   }
 
   @override
@@ -80,19 +90,12 @@ class _PhoneScreenState extends State<PhoneScreen> {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _valid
-                    ? () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                OtpScreen(phone: '+971 ${_controller.text}'),
-                          ),
-                        )
-                    : null,
+                onPressed: _valid ? _continue : null,
                 child: const Text('Continue'),
               ),
               const SizedBox(height: 12),
               const Text(
-                'By continuing you agree to EVC\'s Terms & Privacy Policy.',
+                "By continuing you agree to EVC's Terms & Privacy Policy.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: EvcColors.slate, fontSize: 12),
               ),

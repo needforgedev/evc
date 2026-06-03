@@ -1,8 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../config/evc_config.dart';
 import '../models/fleet_vehicle.dart' show OwnershipType;
 import '../supabase/evc_supabase.dart';
+import 'dev_auth.dart';
 
 /// Everything collected during driver onboarding (phone → details → docs).
 class DriverRegistrationData {
@@ -32,52 +32,20 @@ class DriverRegistrationData {
   final Set<String> providedDocs;
 }
 
-class RegistrationException implements Exception {
-  RegistrationException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
-
-/// Registers a driver end-to-end against Supabase using the dev OTP scheme:
-/// any phone + fixed code, backed by a deterministic email/password so we still
-/// get a real session (JWT + RLS). No-op (mock success) when creds aren't set.
+/// Registers a driver end-to-end: dev-OTP sign-in, then persist profile +
+/// vehicle + (pending) driver record + document metadata. No-op in mock mode.
 abstract final class DriverRegistration {
-  /// Deterministic synthetic email so the same phone always maps to the same
-  /// account (phone stays the real identity, stored on the profile).
-  static String emailForPhone(String phone) {
-    final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
-    return '$digits@evc-driver.test';
-  }
-
-  static const String _devPassword = 'evc-dev-7464';
-
   static Future<void> register(DriverRegistrationData d) async {
-    // Pure-mock mode until creds are added — flow still works, nothing persisted.
-    if (!EvcSupabase.isReady) return;
+    final uid = await EvcDevAuth.signIn(
+      role: 'driver',
+      phone: d.phone,
+      fullName: d.fullName,
+      email: d.email,
+    );
+    if (uid == null) return; // pure-mock mode
 
     final client = EvcSupabase.client;
-    final email = emailForPhone(d.phone);
-
-    // Create the account (first time) or sign in (returning driver). The
-    // handle_new_user trigger makes profiles + driver_details(pending).
     try {
-      await client.auth.signUp(
-        email: email,
-        password: _devPassword,
-        data: {'role': 'driver', 'full_name': d.fullName, 'phone': d.phone},
-      );
-    } on AuthException {
-      await client.auth.signInWithPassword(email: email, password: _devPassword);
-    }
-
-    final uid = client.auth.currentUser?.id;
-    if (uid == null) {
-      throw RegistrationException('Could not establish a session.');
-    }
-
-    try {
-      // Profile (phone/email aren't on the auth row for email signups).
       await client.from('profiles').update({
         'full_name': d.fullName,
         'phone': d.phone,
@@ -99,7 +67,6 @@ abstract final class DriverRegistration {
           .select('id')
           .single();
 
-      // Link the vehicle + owner label onto the (pending) driver record.
       await client.from('driver_details').update({
         'current_vehicle_id': vehicle['id'],
         'owner_label': d.ownership == OwnershipType.company
@@ -127,7 +94,3 @@ abstract final class DriverRegistration {
     }
   }
 }
-
-/// Convenience: matches the entered code against the dev OTP.
-bool verifyDevOtp(String code) =>
-    EvcConfig.devMockOtp && code == EvcConfig.devOtpCode;
