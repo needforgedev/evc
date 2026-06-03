@@ -18,3 +18,7 @@ export 'src/models/fleet_vehicle.dart';
 export 'src/models/driver_record.dart';
 export 'src/models/admin_trip.dart';
 export 'src/models/support_ticket.dart';
+
+export 'src/config/evc_config.dart';
+export 'src/supabase/evc_supabase.dart';
+export 'src/auth/driver_registration.dart';

@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import 'approval_screen.dart';
+import '../../state/onboarding_controller.dart';
+import 'registration_complete_screen.dart';
 
-/// 4-digit OTP verification (mock — any 4 digits work).
-class OtpScreen extends StatefulWidget {
-  const OtpScreen({super.key, required this.phone});
-
-  final String phone;
+/// Verification step. Dev OTP: any number signs in with the fixed code (7464).
+/// On success the driver is registered (real Supabase rows, or mock if creds
+/// aren't set yet).
+class OtpScreen extends ConsumerStatefulWidget {
+  const OtpScreen({super.key});
 
   @override
-  State<OtpScreen> createState() => _OtpScreenState();
+  ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   static const _length = 4;
+  bool _busy = false;
 
   String get _code => _controller.text;
 
@@ -34,15 +38,39 @@ class _OtpScreenState extends State<OtpScreen> {
     super.dispose();
   }
 
-  void _verify() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ApprovalScreen()),
-      (route) => false,
-    );
+  Future<void> _verify() async {
+    if (!verifyDevOtp(_code)) {
+      _focus.unfocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect code. Try the demo code 7464.')),
+      );
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(onboardingControllerProvider.notifier).submit();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RegistrationCompleteScreen()),
+        (route) => false,
+      );
+    } on RegistrationException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final phone = ref.watch(onboardingControllerProvider).phone;
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -57,7 +85,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              Text('Enter the code sent to ${widget.phone}',
+              Text('Enter the code sent to $phone',
                   style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 32),
               GestureDetector(
@@ -91,13 +119,20 @@ class _OtpScreenState extends State<OtpScreen> {
               const SizedBox(height: 16),
               const Align(
                 alignment: Alignment.centerRight,
-                child: Text('Demo code: 1234',
+                child: Text('Demo code: 7464',
                     style: TextStyle(color: EvcColors.slate, fontSize: 12)),
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _code.length == _length ? _verify : null,
-                child: const Text('Verify'),
+                onPressed: (_code.length == _length && !_busy) ? _verify : null,
+                child: _busy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : const Text('Verify & register'),
               ),
             ],
           ),

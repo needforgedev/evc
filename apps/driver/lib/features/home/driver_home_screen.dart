@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:evc_core/evc_core.dart';
 import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../mock/mock_data.dart';
-import '../../state/driver_status_controller.dart';
-import '../../state/job_controller.dart';
-import '../trip/active_trip_screen.dart';
-import 'widgets/ride_request_sheet.dart';
+import '../../state/driver_account.dart';
+import '../../state/driver_data.dart';
 
-/// Driver home — map, online/offline control, and incoming requests.
+/// Driver home — map, real status/battery, and the online control (gated on
+/// account approval).
 class DriverHomeScreen extends ConsumerStatefulWidget {
   const DriverHomeScreen({super.key});
 
@@ -19,50 +17,26 @@ class DriverHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
-  bool _sheetOpen = false;
+  bool _busy = false;
 
-  void _goOnline() {
-    ref.read(driverStatusProvider.notifier).goOnline();
-    ref.read(jobControllerProvider.notifier).lookForRide();
-  }
-
-  void _goOffline() {
-    ref.read(driverStatusProvider.notifier).goOffline();
-    ref.read(jobControllerProvider.notifier).clear();
-  }
-
-  Future<void> _presentOffer() async {
-    final request = ref.read(jobControllerProvider).request;
-    if (request == null) return;
-    _sheetOpen = true;
-    final accepted = await showModalBottomSheet<bool>(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      builder: (_) => RideRequestSheet(request: request),
-    );
-    _sheetOpen = false;
-    if (!mounted) return;
-
-    final job = ref.read(jobControllerProvider.notifier);
-    if (accepted == true) {
-      job.accept();
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ActiveTripScreen()),
-      );
-    } else {
-      job.decline();
+  Future<void> _toggleOnline(DriverAccount d) async {
+    setState(() => _busy = true);
+    try {
+      await DriverActions.goOnline(!d.isOnline);
+      ref.invalidate(currentDriverProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not update status: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(jobControllerProvider, (prev, next) {
-      if (next.stage == JobStage.offered && !_sheetOpen) _presentOffer();
-    });
-
-    final driver = ref.watch(driverStatusProvider);
+    final driverAsync = ref.watch(currentDriverProvider);
 
     return Scaffold(
       body: Stack(
@@ -75,20 +49,31 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  _StatusPill(status: driver.status),
+                  _StatusPill(driver: driverAsync.value),
                   const Spacer(),
-                  _BatteryChip(
-                      percent: driver.batteryPercent, rangeKm: driver.rangeKm),
+                  if (driverAsync.value != null)
+                    _BatteryChip(driver: driverAsync.value!),
                 ],
               ),
             ),
           ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: _HomePanel(
-              driver: driver,
-              onGoOnline: _goOnline,
-              onGoOffline: _goOffline,
+            child: driverAsync.when(
+              loading: () => const _PanelShell(
+                  child: SizedBox(
+                      height: 80,
+                      child: Center(child: CircularProgressIndicator()))),
+              error: (e, _) => _PanelShell(
+                child: Text('Could not load your account.\n$e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: EvcColors.slate)),
+              ),
+              data: (d) => _HomePanel(
+                driver: d,
+                busy: _busy,
+                onToggle: d == null ? null : () => _toggleOnline(d),
+              ),
             ),
           ),
         ],
@@ -97,17 +82,20 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   }
 }
 
+(String, Color) _statusOf(DriverAccount? d) {
+  if (d == null) return ('Offline', EvcColors.slate);
+  if (d.isCharging) return ('Charging', EvcColors.warning);
+  if (d.isOnline) return ('Online', EvcColors.primary);
+  return ('Offline', EvcColors.slate);
+}
+
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-  final DriverStatus status;
+  const _StatusPill({required this.driver});
+  final DriverAccount? driver;
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      DriverStatus.offline => ('Offline', EvcColors.slate),
-      DriverStatus.online => ('Online', EvcColors.primary),
-      DriverStatus.charging => ('Charging', EvcColors.warning),
-    };
+    final (label, color) = _statusOf(driver);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -134,9 +122,8 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _BatteryChip extends StatelessWidget {
-  const _BatteryChip({required this.percent, required this.rangeKm});
-  final int percent;
-  final int rangeKm;
+  const _BatteryChip({required this.driver});
+  final DriverAccount driver;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +142,7 @@ class _BatteryChip extends StatelessWidget {
           const Icon(Icons.battery_charging_full,
               color: EvcColors.primaryDark, size: 18),
           const SizedBox(width: 6),
-          Text('$percent% · $rangeKm km',
+          Text('${driver.batteryPercent}% · ${driver.rangeKm} km',
               style: const TextStyle(fontWeight: FontWeight.w800)),
         ],
       ),
@@ -163,20 +150,12 @@ class _BatteryChip extends StatelessWidget {
   }
 }
 
-class _HomePanel extends StatelessWidget {
-  const _HomePanel({
-    required this.driver,
-    required this.onGoOnline,
-    required this.onGoOffline,
-  });
-
-  final DriverState driver;
-  final VoidCallback onGoOnline;
-  final VoidCallback onGoOffline;
+class _PanelShell extends StatelessWidget {
+  const _PanelShell({required this.child});
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final online = driver.isOnline;
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -187,71 +166,114 @@ class _HomePanel extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: EvcColors.line,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+          top: false,
+          child: Padding(padding: const EdgeInsets.all(20), child: child)),
+    );
+  }
+}
+
+class _HomePanel extends ConsumerWidget {
+  const _HomePanel({required this.driver, required this.busy, this.onToggle});
+
+  final DriverAccount? driver;
+  final bool busy;
+  final VoidCallback? onToggle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final earnings = ref.watch(driverEarningsProvider);
+    final today = earnings.value?.first;
+    final online = driver?.isOnline ?? false;
+    final pending = driver != null && !driver!.isActive;
+
+    return _PanelShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: EvcColors.line,
+                borderRadius: BorderRadius.circular(2),
               ),
-              const SizedBox(height: 16),
-              // Today's earnings snapshot.
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: EvcColors.mist,
-                  borderRadius: BorderRadius.circular(EvcRadius.md),
-                ),
-                child: Row(
-                  children: [
-                    _miniStat('AED ${DriverMock.today.totalAed.toStringAsFixed(0)}',
-                        'Earned today'),
-                    _divider(),
-                    _miniStat('${DriverMock.today.trips}', 'Trips'),
-                    _divider(),
-                    _miniStat('${DriverMock.today.onlineHours}h', 'Online'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (online)
-                Row(
-                  children: const [
-                    SizedBox(
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: EvcColors.mist,
+              borderRadius: BorderRadius.circular(EvcRadius.md),
+            ),
+            child: Row(
+              children: [
+                _miniStat('AED ${(today?.totalAed ?? 0).toStringAsFixed(0)}',
+                    'Earned today'),
+                _divider(),
+                _miniStat('${today?.trips ?? 0}', 'Trips'),
+                _divider(),
+                _miniStat(driver?.rating.toStringAsFixed(2) ?? '—', 'Rating'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (pending)
+            _pendingBanner()
+          else if (online)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2.5, color: EvcColors.primary),
-                    ),
-                    SizedBox(width: 12),
-                    Text('Looking for trips nearby…',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
-                  ],
-                ),
-              if (online) const SizedBox(height: 14),
-              FilledButton(
-                style: online
-                    ? FilledButton.styleFrom(
-                        backgroundColor: EvcColors.ink,
-                        foregroundColor: Colors.white,
-                      )
-                    : null,
-                onPressed: online ? onGoOffline : onGoOnline,
-                child: Text(online ? 'Go offline' : 'Go online'),
+                          strokeWidth: 2.5, color: EvcColors.primary)),
+                  SizedBox(width: 12),
+                  Text('Looking for trips nearby…',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                ],
               ),
-            ],
+            ),
+          FilledButton(
+            style: online
+                ? FilledButton.styleFrom(
+                    backgroundColor: EvcColors.ink, foregroundColor: Colors.white)
+                : null,
+            onPressed: (pending || busy) ? null : onToggle,
+            child: busy
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: Colors.white))
+                : Text(online ? 'Go offline' : 'Go online'),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pendingBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: EvcColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(EvcRadius.sm),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.hourglass_bottom, color: Color(0xFFB78000)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text("Pending approval — you can't go online until ops verify your account.",
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+        ],
       ),
     );
   }
@@ -271,9 +293,8 @@ class _HomePanel extends StatelessWidget {
   }
 
   Widget _divider() => Container(
-        width: 1,
-        height: 32,
-        color: EvcColors.line,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-      );
+      width: 1,
+      height: 32,
+      color: EvcColors.line,
+      margin: const EdgeInsets.symmetric(horizontal: 8));
 }

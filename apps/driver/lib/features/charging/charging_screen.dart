@@ -5,16 +5,40 @@ import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../mock/mock_data.dart';
-import '../../state/driver_status_controller.dart';
+import '../../state/driver_account.dart';
+import '../../state/driver_data.dart';
 
-/// Charging tab — station map, "I'm charging" status, and nearby DEWA chargers.
-class ChargingScreen extends ConsumerWidget {
+/// Charging tab — real DEWA station map, range awareness, and "I'm charging".
+class ChargingScreen extends ConsumerStatefulWidget {
   const ChargingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final driver = ref.watch(driverStatusProvider);
-    final charging = driver.isCharging;
+  ConsumerState<ChargingScreen> createState() => _ChargingScreenState();
+}
+
+class _ChargingScreenState extends ConsumerState<ChargingScreen> {
+  bool _busy = false;
+
+  Future<void> _toggleCharging(DriverAccount d, bool charging) async {
+    setState(() => _busy = true);
+    try {
+      await DriverActions.setCharging(charging, d.vehicleId);
+      ref.invalidate(currentDriverProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not update: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final driver = ref.watch(currentDriverProvider).value;
+    final stationsAsync = ref.watch(chargingStationsProvider);
+    final charging = driver?.isCharging ?? false;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Charging')),
@@ -23,33 +47,30 @@ class ChargingScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: [
-            // Map header with station markers.
             ClipRRect(
               borderRadius: BorderRadius.circular(EvcRadius.md),
               child: SizedBox(
                 height: 180,
                 child: LayoutBuilder(
-                  builder: (context, c) {
-                    return Stack(
-                      children: [
-                        const Positioned.fill(
-                          child: PlaceholderMap(
-                              pickup: DriverMock.driverLocation),
+                  builder: (context, c) => Stack(
+                    children: [
+                      const Positioned.fill(
+                        child:
+                            PlaceholderMap(pickup: DriverMock.driverLocation),
+                      ),
+                      for (final s in stationsAsync.value ?? const [])
+                        Positioned(
+                          left: s.mapX * c.maxWidth - 16,
+                          top: s.mapY * c.maxHeight - 16,
+                          child: _StationPin(available: s.hasAvailability),
                         ),
-                        for (final s in DriverMock.stations)
-                          Positioned(
-                            left: s.mapX * c.maxWidth - 16,
-                            top: s.mapY * c.maxHeight - 16,
-                            child: _StationPin(available: s.hasAvailability),
-                          ),
-                      ],
-                    );
-                  },
+                    ],
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            // Charging status / range awareness.
+            // Charging status + range awareness (real battery/range).
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -63,18 +84,15 @@ class ChargingScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(
-                          charging
-                              ? Icons.bolt
-                              : Icons.battery_charging_full,
+                      Icon(charging ? Icons.bolt : Icons.battery_charging_full,
                           color: charging
                               ? EvcColors.warning
                               : EvcColors.primaryDark),
                       const SizedBox(width: 10),
                       Text(
                           charging
-                              ? 'Charging — you\'re offline'
-                              : '${driver.batteryPercent}% · ${driver.rangeKm} km range',
+                              ? "Charging — you're offline"
+                              : '${driver?.batteryPercent ?? 0}% · ${driver?.rangeKm ?? 0} km range',
                           style: const TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 16)),
                     ],
@@ -82,27 +100,28 @@ class ChargingScreen extends ConsumerWidget {
                   const SizedBox(height: 6),
                   Text(
                     charging
-                        ? 'Dispatch is paused. Resume when you\'re done.'
-                        : 'Good for ~6 more trips. Consider a top-up within 2 hours.',
+                        ? 'Dispatch is paused. Resume when you’re done.'
+                        : 'Plug in to keep your range trip-ready.',
                     style: const TextStyle(color: EvcColors.slate),
                   ),
                   const SizedBox(height: 12),
-                  charging
-                      ? FilledButton(
-                          style: FilledButton.styleFrom(
-                              backgroundColor: EvcColors.ink),
-                          onPressed: () => ref
-                              .read(driverStatusProvider.notifier)
-                              .stopCharging(),
-                          child: const Text('Done charging — go offline'),
-                        )
-                      : FilledButton.icon(
-                          onPressed: () => ref
-                              .read(driverStatusProvider.notifier)
-                              .startCharging(),
-                          icon: const Icon(Icons.ev_station),
-                          label: const Text("I'm charging"),
-                        ),
+                  if (driver != null)
+                    charging
+                        ? FilledButton(
+                            style: FilledButton.styleFrom(
+                                backgroundColor: EvcColors.ink),
+                            onPressed: _busy
+                                ? null
+                                : () => _toggleCharging(driver, false),
+                            child: const Text('Done charging'),
+                          )
+                        : FilledButton.icon(
+                            onPressed: _busy
+                                ? null
+                                : () => _toggleCharging(driver, true),
+                            icon: const Icon(Icons.ev_station),
+                            label: const Text("I'm charging"),
+                          ),
                 ],
               ),
             ),
@@ -110,7 +129,16 @@ class ChargingScreen extends ConsumerWidget {
             const Text('Nearby chargers',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             const SizedBox(height: 8),
-            for (final s in DriverMock.stations) _StationCard(station: s),
+            stationsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Text('Could not load stations.\n$e'),
+              data: (stations) => Column(
+                children: [for (final s in stations) _StationCard(station: s)],
+              ),
+            ),
           ],
         ),
       ),
@@ -175,8 +203,8 @@ class _StationCard extends StatelessWidget {
                           color: EvcColors.slate, fontSize: 13)),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: (available ? EvcColors.primary : EvcColors.danger)
                           .withValues(alpha: 0.12),
@@ -198,9 +226,8 @@ class _StationCard extends StatelessWidget {
               ),
             ),
             IconButton.filledTonal(
-              onPressed: () {},
-              icon: const Icon(Icons.navigation_outlined),
-            ),
+                onPressed: () {},
+                icon: const Icon(Icons.navigation_outlined)),
           ],
         ),
       ),

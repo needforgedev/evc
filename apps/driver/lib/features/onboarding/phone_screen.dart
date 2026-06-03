@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import 'otp_screen.dart';
+import '../../state/onboarding_controller.dart';
+import 'details_screen.dart';
 
-/// Driver phone-number entry (UAE) — first step of OTP sign-in.
-class PhoneScreen extends StatefulWidget {
+/// Driver phone-number entry (UAE) — first onboarding step. Any number works.
+class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
 
   @override
-  State<PhoneScreen> createState() => _PhoneScreenState();
+  ConsumerState<PhoneScreen> createState() => _PhoneScreenState();
 }
 
-class _PhoneScreenState extends State<PhoneScreen> {
+class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _controller = TextEditingController();
   bool get _valid => _controller.text.length >= 9;
 
@@ -20,6 +22,14 @@ class _PhoneScreenState extends State<PhoneScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _continue() {
+    ref.read(onboardingControllerProvider.notifier)
+        .setPhone('+971${_controller.text}');
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const DetailsScreen()),
+    );
   }
 
   @override
@@ -32,13 +42,13 @@ class _PhoneScreenState extends State<PhoneScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Driver sign in',
+              Text('Driver sign up',
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              const Text("Enter your registered mobile number.",
+              const Text('Enter your mobile number to get started.',
                   style: TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 28),
               Row(
@@ -76,14 +86,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _valid
-                    ? () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                OtpScreen(phone: '+971 ${_controller.text}'),
-                          ),
-                        )
-                    : null,
+                onPressed: _valid ? _continue : null,
                 child: const Text('Continue'),
               ),
             ],

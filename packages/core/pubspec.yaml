@@ -13,7 +13,8 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  # Supabase, riverpod, freezed, etc. get added here as Phase 0 progresses.
+  supabase_flutter: ^2.12.0
+  # riverpod, freezed, etc. get added here as Phase 0 progresses.
 
 dev_dependencies:
   flutter_test:
