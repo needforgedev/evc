@@ -4,7 +4,8 @@ import 'package:evc_core/evc_core.dart';
 import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../state/admin_controller.dart';
+import '../../state/admin_data.dart';
+import 'trips_screen.dart' show shortId;
 
 /// Inspect a single trip + intervene (reassign / cancel / refund).
 class TripDetailScreen extends ConsumerWidget {
@@ -14,18 +15,18 @@ class TripDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final current = ref.watch(adminControllerProvider).trips.firstWhere(
-          (t) => t.id == trip.id,
-          orElse: () => trip,
-        );
-    final ctrl = ref.read(adminControllerProvider.notifier);
+    final current = ref.watch(adminTripsProvider).value?.firstWhere(
+              (t) => t.id == trip.id,
+              orElse: () => trip,
+            ) ??
+        trip;
     final ongoing = current.status == AdminTripStatus.ongoing;
 
     void snack(String m) => ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(m)));
 
     return Scaffold(
-      appBar: AppBar(title: Text(current.id)),
+      appBar: AppBar(title: Text('#${shortId(current.id)}')),
       body: SafeArea(
         top: false,
         child: Column(
@@ -34,7 +35,6 @@ class TripDetailScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                 children: [
-                  // Mini live map with the vehicle position.
                   ClipRRect(
                     borderRadius: BorderRadius.circular(EvcRadius.md),
                     child: SizedBox(
@@ -70,9 +70,6 @@ class TripDetailScreen extends ConsumerWidget {
                   Text(current.stageLabel,
                       style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 18)),
-                  if (ongoing)
-                    Text('ETA ${current.etaMinutes} min',
-                        style: const TextStyle(color: EvcColors.slate)),
                   const SizedBox(height: 16),
                   _row('Rider', current.riderName, Icons.person_outline),
                   _row('Driver', current.driverName, Icons.badge_outlined),
@@ -101,9 +98,16 @@ class TripDetailScreen extends ConsumerWidget {
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
                                 backgroundColor: EvcColors.danger),
-                            onPressed: () {
-                              ctrl.cancelTrip(current.id);
-                              snack('${current.id} canceled');
+                            onPressed: () async {
+                              try {
+                                await AdminActions.cancelTrip(current.id);
+                                ref.invalidate(adminTripsProvider);
+                                if (context.mounted) {
+                                  snack('Trip canceled');
+                                }
+                              } catch (e) {
+                                if (context.mounted) snack('Failed: $e');
+                              }
                             },
                             icon: const Icon(Icons.cancel_outlined),
                             label: const Text('Cancel'),

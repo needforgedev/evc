@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../state/admin_controller.dart';
+import '../../state/admin_data.dart';
 import 'drivers_screen.dart' show StatusChip;
 
 /// Driver profile + moderation actions (approve / reject / suspend / reactivate).
@@ -14,19 +14,29 @@ class DriverDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Reflect live status from the controller (falls back to the passed-in one).
-    final current = ref.watch(adminControllerProvider).drivers.firstWhere(
-          (d) => d.name == driver.name,
-          orElse: () => driver,
-        );
-    final ctrl = ref.read(adminControllerProvider.notifier);
+    // Reflect live status from the providers list (falls back to passed-in).
+    final current = ref.watch(adminDriversProvider).value?.firstWhere(
+              (d) => d.id == driver.id,
+              orElse: () => driver,
+            ) ??
+        driver;
     final pending = current.status == DriverAccountStatus.pending;
 
-    void act(VoidCallback action, String msg) {
-      action();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
-      Navigator.of(context).pop();
+    Future<void> act(String status, String msg) async {
+      try {
+        await AdminActions.setDriverStatus(current.id, status);
+        ref.invalidate(adminDriversProvider);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(msg)));
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Failed: $e')));
+        }
+      }
     }
 
     return Scaffold(
@@ -57,8 +67,7 @@ class DriverDetailScreen extends ConsumerWidget {
                           children: [
                             Text(current.name,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 20)),
+                                    fontWeight: FontWeight.w800, fontSize: 20)),
                             const SizedBox(height: 4),
                             StatusChip(status: current.status),
                           ],
@@ -72,7 +81,7 @@ class DriverDetailScreen extends ConsumerWidget {
                       children: [
                         _stat('★ ${current.rating}', 'Rating'),
                         _stat('${current.totalTrips}', 'Trips'),
-                        _stat('94%', 'Acceptance'),
+                        _stat(current.ownerLabel, 'Vehicle'),
                       ],
                     ),
                   if (!pending) const SizedBox(height: 20),
@@ -87,8 +96,7 @@ class DriverDetailScreen extends ConsumerWidget {
                       title: Text(current.vehicleModel,
                           style:
                               const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text(
-                          '${current.ownerLabel} · ${current.plate}'),
+                      subtitle: Text('${current.ownerLabel} · ${current.plate}'),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -125,23 +133,22 @@ class DriverDetailScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            _actions(context, current, ctrl, act),
+            _actions(context, current, act),
           ],
         ),
       ),
     );
   }
 
-  Widget _actions(BuildContext context, DriverRecord d, AdminController ctrl,
-      void Function(VoidCallback, String) act) {
+  Widget _actions(BuildContext context, DriverRecord d,
+      Future<void> Function(String, String) act) {
     final children = switch (d.status) {
       DriverAccountStatus.pending => [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => act(
-                  () => ctrl.rejectDriver(d.name), '${d.name} rejected'),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: EvcColors.danger),
+              onPressed: () => act('suspended', '${d.name} rejected'),
+              style:
+                  OutlinedButton.styleFrom(foregroundColor: EvcColors.danger),
               child: const Text('Reject'),
             ),
           ),
@@ -149,8 +156,8 @@ class DriverDetailScreen extends ConsumerWidget {
           Expanded(
             flex: 2,
             child: FilledButton(
-              onPressed: () => act(() => ctrl.approveDriver(d.name),
-                  '${d.name} approved — can now go online'),
+              onPressed: () =>
+                  act('active', '${d.name} approved — can now go online'),
               child: const Text('Approve driver'),
             ),
           ),
@@ -159,8 +166,7 @@ class DriverDetailScreen extends ConsumerWidget {
           Expanded(
             child: FilledButton(
               style: FilledButton.styleFrom(backgroundColor: EvcColors.danger),
-              onPressed: () => act(
-                  () => ctrl.suspendDriver(d.name), '${d.name} suspended'),
+              onPressed: () => act('suspended', '${d.name} suspended'),
               child: const Text('Suspend driver'),
             ),
           ),
@@ -168,8 +174,7 @@ class DriverDetailScreen extends ConsumerWidget {
       DriverAccountStatus.suspended => [
           Expanded(
             child: FilledButton(
-              onPressed: () => act(() => ctrl.reactivateDriver(d.name),
-                  '${d.name} reactivated'),
+              onPressed: () => act('active', '${d.name} reactivated'),
               child: const Text('Reactivate driver'),
             ),
           ),
@@ -187,8 +192,9 @@ class DriverDetailScreen extends ConsumerWidget {
       child: Column(
         children: [
           Text(value,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           Text(label,
               style: const TextStyle(color: EvcColors.slate, fontSize: 12)),
         ],

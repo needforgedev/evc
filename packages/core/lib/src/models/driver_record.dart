@@ -7,6 +7,7 @@ enum DriverAccountStatus { pending, active, suspended }
 @immutable
 class DriverRecord {
   const DriverRecord({
+    this.id = '',
     required this.name,
     required this.initials,
     required this.avatarColor,
@@ -19,6 +20,8 @@ class DriverRecord {
     this.appliedLabel = '',
   });
 
+  /// Driver's profile id (uuid) — needed for admin RPC calls. Empty for mock.
+  final String id;
   final String name;
   final String initials;
   final Color avatarColor;
@@ -33,6 +36,7 @@ class DriverRecord {
   final String appliedLabel;
 
   DriverRecord copyWith({DriverAccountStatus? status}) => DriverRecord(
+        id: id,
         name: name,
         initials: initials,
         avatarColor: avatarColor,

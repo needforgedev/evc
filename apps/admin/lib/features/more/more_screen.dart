@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../state/admin_session.dart';
 import '../analytics/analytics_screen.dart';
+import '../auth/login_screen.dart';
 import '../finance/finance_screen.dart';
 import '../fleet/fleet_screen.dart';
 import '../pricing/pricing_screen.dart';
 import '../support/support_screen.dart';
 
 /// Secondary ops sections.
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
 
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    await AdminAuth.signOut();
+    ref.invalidate(currentAdminProvider);
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final items = <(IconData, String, String, Widget?)>[
       (Icons.electric_car, 'Fleet & vehicles',
           'Registry, battery, maintenance', const FleetScreen()),
@@ -64,7 +77,7 @@ class MoreScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Center(
               child: TextButton(
-                onPressed: () {},
+                onPressed: () => _signOut(context, ref),
                 style: TextButton.styleFrom(foregroundColor: EvcColors.danger),
                 child: const Text('Sign out'),
               ),

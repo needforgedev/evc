@@ -1,37 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../mock/admin_mock.dart';
+import '../../state/admin_data.dart';
 
-/// Fleet registry — every EV, its battery/range, ownership and status.
-class FleetScreen extends StatelessWidget {
+/// Fleet registry — every EV, its battery/range, ownership and status (real).
+class FleetScreen extends ConsumerWidget {
   const FleetScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final fleet = AdminMock.fleet;
-    int countOf(VehicleStatus s) =>
-        fleet.where((v) => v.status == s).length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fleetAsync = ref.watch(adminFleetProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Fleet & vehicles')),
       body: SafeArea(
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          children: [
-            Row(
+        child: fleetAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load fleet.\n$e')),
+          data: (fleet) {
+            if (fleet.isEmpty) {
+              return const Center(
+                  child: Text('No vehicles yet.',
+                      style: TextStyle(color: EvcColors.slate)));
+            }
+            int countOf(VehicleStatus s) =>
+                fleet.where((v) => v.status == s).length;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               children: [
-                _tally('${fleet.length}', 'Vehicles'),
-                _tally('${countOf(VehicleStatus.active)}', 'Active'),
-                _tally('${countOf(VehicleStatus.charging)}', 'Charging'),
-                _tally('${countOf(VehicleStatus.maintenance)}', 'Service'),
+                Row(
+                  children: [
+                    _tally('${fleet.length}', 'Vehicles'),
+                    _tally('${countOf(VehicleStatus.active)}', 'Active'),
+                    _tally('${countOf(VehicleStatus.charging)}', 'Charging'),
+                    _tally('${countOf(VehicleStatus.maintenance)}', 'Service'),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                for (final v in fleet) _VehicleCard(vehicle: v),
               ],
-            ),
-            const SizedBox(height: 20),
-            for (final v in fleet) _VehicleCard(vehicle: v),
-          ],
+            );
+          },
         ),
       ),
     );

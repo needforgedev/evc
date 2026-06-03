@@ -1,44 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../mock/admin_mock.dart';
+import '../../state/admin_data.dart';
 
-/// Support & disputes console — ticket queue.
-class SupportScreen extends StatelessWidget {
+/// Support & disputes console — real ticket queue.
+class SupportScreen extends ConsumerWidget {
   const SupportScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final tickets = AdminMock.tickets;
-    final open =
-        tickets.where((t) => t.status != TicketStatus.resolved).length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ticketsAsync = ref.watch(adminTicketsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Support & disputes')),
       body: SafeArea(
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: EvcColors.warning.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(EvcRadius.md),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.inbox_outlined, color: Color(0xFFB78000)),
-                  const SizedBox(width: 12),
-                  Text('$open open ticket${open == 1 ? '' : 's'} in the queue',
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            for (final t in tickets) _TicketCard(ticket: t),
-          ],
+        child: ticketsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load tickets.\n$e')),
+          data: (tickets) {
+            if (tickets.isEmpty) {
+              return const Center(
+                  child: Text('No support tickets.',
+                      style: TextStyle(color: EvcColors.slate)));
+            }
+            final open =
+                tickets.where((t) => t.status != TicketStatus.resolved).length;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: EvcColors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(EvcRadius.md),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inbox_outlined,
+                          color: Color(0xFFB78000)),
+                      const SizedBox(width: 12),
+                      Text('$open open ticket${open == 1 ? '' : 's'} in the queue',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                for (final t in tickets) _TicketCard(ticket: t),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -82,7 +95,7 @@ class _TicketCard extends StatelessWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 14)),
                   const SizedBox(height: 2),
-                  Text('${ticket.id} · ${ticket.fromName} · ${ticket.timeLabel}',
+                  Text('#${ticket.id} · ${ticket.fromName} · ${ticket.timeLabel}',
                       style: const TextStyle(
                           color: EvcColors.slate, fontSize: 12)),
                 ],

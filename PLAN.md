@@ -8,19 +8,22 @@
 
 ---
 
-## Progress snapshot — 2026-06-02
+## Progress snapshot — 2026-06-03
 
-**Where we are:** the monorepo + shared packages are in place, and **all three apps have complete, navigable UI mocks** running on hardcoded data (no backend yet). Built ahead of the backend to validate the UX for every role.
+**Where we are:** backend is **live** and all three apps have **real authentication + real account data**. Registration and the driver-approval loop work end-to-end **in-app**. **Trips are still mock** — that's the next milestone.
 
-- ✅ **Monorepo** — pub workspace (`apps/` + `packages/`), melos, shared lint. All three build to APKs: `dev.needforge.evc{rider,driver,admin}`.
-- ✅ **Shared packages** — `core` (12 domain models), `ui_kit` (EVC theme + `Co2Badge`), `maps` (shared `PlaceholderMap`). `realtime` is still a stub.
-- ✅ **Rider mock** — onboarding → book → match → live-track → pay → rate → history.
-- ✅ **Driver mock** — sign-in → approval → go online → accept request → navigate → complete → earnings + charging map.
-- ✅ **Admin mock** — overview KPIs, live ops map, driver approvals, trip intervene, fleet/pricing/finance/support/analytics.
-- 🛠️ **Backend authored** — Supabase schema + RLS + trip-lifecycle RPCs + realtime + seed live in `supabase/` (not yet applied to a project). See [supabase/README.md](supabase/README.md).
-- ⏭️ **Next:** apply the migrations and wire `packages/core` (Supabase client + repositories) so one `trips` row flows Rider → Driver → Admin.
+- ✅ **Monorepo** — pub workspace, melos, shared lint. All three build to APKs: `dev.needforge.evc{rider,driver,admin}`.
+- ✅ **Backend live** — schema + RLS + trip-lifecycle RPCs + realtime + analytics views applied to the Supabase project. Creds injected per app via `--dart-define-from-file=.env`.
+- ✅ **Auth (real)** — dev-OTP scheme (any number + fixed code **7464**, role-scoped synthetic email under the hood → real JWT + RLS) for Rider & Driver; **email/password** for Admin (provisioned in the Supabase dashboard). Sessions persist → no re-login.
+- ✅ **Rider (real)** — register (phone → name → 7464) → real `profiles`; Account + ride history read live data.
+- ✅ **Driver (real)** — register (phone → details → docs → 7464) → real `profiles`/`vehicles`/`driver_details`(pending)/doc metadata; Account, battery/range, charging toggle and earnings all live; **Go online gated on `active`**.
+- ✅ **Admin (real)** — email/password login + role guard; **approval queue, drivers, trips (cancel), live map, fleet, support, overview KPIs** all read/write live data via RLS + RPCs.
+- ✅ **Loop closed in-app** — register driver → shows **Pending** in Admin → **Approve** → driver can go online. No SQL needed.
+- ⏭️ **Next:** **real trips** — Rider `request_ride` → Driver realtime accept/advance/complete → earnings, history and the live map light up across all three apps.
 
-> State = Riverpod (`Notifier`/`NotifierProvider`, no codegen yet). Data is mock; swapping to Supabase-backed repositories should not change the screens.
+**Still mock / pending:** trips (book → dispatch → drive → earn), Admin Pricing/Finance/Analytics screens, real Google Maps, real SMS OTP (Twilio), push notifications, document storage bucket.
+
+> State = Riverpod (plain `Notifier`, no codegen). Dev OTP **7464** is a dev backdoor (`EvcConfig.devMockOtp`) — replace with real SMS OTP before launch.
 
 ---
 
@@ -42,46 +45,46 @@ These shape everything downstream — record the final call and date.
 
 ## Phase 0 — Foundation & Setup
 
-**Status:** In progress (~60%) · **Goal:** A working monorepo with shared packages, auth, and a backend the apps can talk to.
+**Status:** Mostly done (~85%) · **Goal:** A working monorepo with shared packages, auth, and a backend the apps can talk to.
 
 ### 0.1 Repo & tooling
 - [x] Decide & record items 1–6 in the Decisions Log
-- [x] Restructure repo into monorepo (`apps/`, `packages/`) — `backend/` still TBD
+- [x] Restructure repo into monorepo (`apps/`, `packages/`, `supabase/`)
 - [x] Set up `melos` (pub workspace) for multi-package management
 - [x] Configure shared lint rules (`analysis_options.yaml`) across packages
 - [ ] Set up CI (format, analyze, test on PR)
-- [ ] Add `.env`/config handling per environment (dev/staging/prod)
+- [x] Config handling — per-app `.env` via `--dart-define-from-file` (`EvcConfig`); staging/prod profiles TBD
 
 ### 0.2 Shared packages
-- [~] `packages/core` — domain models done (Place, RideTier, Trip, DriverProfile, RideRequest, FleetVehicle, AdminTrip, …); **Supabase client + DI still TBD**
+- [x] `packages/core` — domain models + Supabase client (`EvcSupabase`) + dev-OTP auth (`EvcDevAuth`) + Rider/Driver registration
 - [x] `packages/ui_kit` — theme, colors, typography, base widgets, `Co2Badge`
 - [~] `packages/maps` — shared `PlaceholderMap` (mock); **real Google Maps + provider interface TBD**
-- [~] `packages/realtime` — placeholder only; client scaffold TBD
+- [~] `packages/realtime` — placeholder; apps use the Supabase client directly for now
 
-### 0.3 Backend foundation  *(schema authored in `supabase/`; not yet applied to a live project)*
-- [~] Stand up Supabase project — *migrations + functions + seed written; run `supabase db reset` to apply*
+### 0.3 Backend foundation  *(applied to the live Supabase project)*
+- [x] Stand up Supabase project — schema + functions + seed applied
 - [x] Define DB schema for core domains (identity, trips, vehicles, payments) + RLS — *`supabase/migrations/`*
 - [x] Trip-lifecycle RPCs + range-aware dispatch + realtime publication + analytics views
-- [~] Auth: phone OTP (UAE), role model — *`handle_new_user` trigger + role model done; Twilio provider config pending*
-- [ ] Wire `core` Supabase client + repositories; health check
+- [x] Auth: role model (rider/driver/admin) + dev-OTP (7464) + admin email/password — *real SMS OTP (Twilio) still TBD*
+- [~] Wire `core` Supabase client + repositories — *auth + account/admin reads done; **trip repositories next***
 - [ ] Set up push notifications (FCM/APNs) plumbing
 
 ### 0.4 App shells
-- [~] `apps/rider` shell boots & themed (full UI mock); **real auth TBD**
-- [~] `apps/driver` shell boots & themed (full UI mock); **real auth TBD**
-- [~] `apps/admin` shell boots & themed (full UI mock); **real auth TBD**
+- [x] `apps/rider` boots, themed, **real auth + session persistence**
+- [x] `apps/driver` boots, themed, **real auth + session persistence**
+- [x] `apps/admin` boots, themed, **real auth + session persistence**
 
-**Exit criteria:** All three apps build, share `core`/`ui_kit` ✅ — and a user can sign in via the shared backend ⏳.
+**Exit criteria:** All three apps build, share `core`/`ui_kit`, and a user can sign in via the shared backend. ✅
 
 ---
 
 ## Phase 1 — Rider MVP
 
-**Status:** UI mock complete ✅ · backend integration pending ⏳ · **Goal:** A rider can book → get matched → track → complete → pay → rate, end to end.
+**Status:** Auth + account **real** ✅ · booking → trip still mock ⏳ · **Goal:** A rider can book → get matched → track → complete → pay → rate, end to end.
 
 ### 1.1 Onboarding
-- [~] Phone OTP login + profile creation — *mock (any code works)*
-- [~] Saved places (Home / Work / custom) — *mock*
+- [x] Phone → name → OTP (7464) → **real `profiles` row + session** (no re-login)
+- [~] Saved places (Home / Work / custom) — *mock (saved_places table exists, not wired)*
 
 ### 1.2 Booking flow
 - [~] Pickup selection (GPS / map pin / search) — *mock search list*
@@ -99,66 +102,67 @@ These shape everything downstream — record the final call and date.
 - [~] Cash + card + Apple Pay + wallet selector — *mock*
 - [~] Fare calculation on completion + receipt (VAT-compliant) — *computed client-side*
 - [x] Rating + tags + tip — *mock submit*
-- [x] Ride history — *mock list*
+- [x] Ride history — **real** (reads completed `trips`; empty-state for new riders)
+- [x] Account screen — **real** name/phone/rating/trips/CO₂ + sign out
 
-**Exit criteria:** A real rider can complete a paid trip on a device against the backend. *(UI done; needs Supabase.)*
+**Exit criteria:** A real rider can complete a paid trip on a device against the backend. *(Account real; booking → `request_ride` is the next step.)*
 
 ---
 
 ## Phase 2 — Driver MVP
 
-**Status:** UI mock complete ✅ · backend integration pending ⏳ · **Goal:** Drivers fulfill rides created by the Rider app — closing the loop on the shared backend.
+**Status:** Registration + account/charging/earnings **real** ✅ · receiving/fulfilling trips still mock ⏳ · **Goal:** Drivers fulfill rides created by the Rider app — closing the loop on the shared backend.
 
 ### 2.1 Onboarding & compliance
-- [~] Document checklist (license, RTA permit, Emirates ID, vehicle reg/insurance) — *mock approval screen, all "verified"*
-- [~] Verification status states (pending/approved/rejected) — *gated in Admin approvals (mock)*
-- [~] Vehicle profile (EV model) — *mock*
+- [x] Register (phone → details → docs → 7464) → **real `vehicles` + `driver_details`(pending) + doc metadata** (no bucket yet)
+- [x] Verification states — **real**: pending until **Admin approves** (`admin_set_driver_status`); **Go online gated on `active`**
+- [x] Vehicle profile (EV model/plate/battery/range/ownership) — **real**
 
 ### 2.2 Going online & receiving rides
-- [x] Online/offline toggle + availability state — *mock*
-- [ ] Location streaming to backend
-- [x] Incoming ride request card (pickup, distance, fare, rating) + accept/decline w/ countdown — *mock*
+- [x] Online/offline toggle — **real** (`driver_set_online` RPC)
+- [~] Location streaming — *default coord sent on go-online; live GPS (geolocator) TBD*
+- [ ] Incoming ride request (accept/decline) — *needs real `request_ride` + realtime (mock removed)*
 
 ### 2.3 Trip lifecycle
-- [~] Turn-by-turn navigation — *map + animated car (mock; no real nav handoff)*
-- [x] Arrived → Start → Complete flow — *mock*
+- [ ] Turn-by-turn navigation — *needs real trip + maps*
+- [ ] Arrived → Start → Complete flow — *RPCs exist (`advance_trip`/`complete_trip`); not yet wired to UI*
 - [~] Contact rider (call/chat) — *UI buttons only*
 
 ### 2.4 Earnings
-- [x] Per-trip earnings + daily summary — *mock*
-- [x] Online hours, acceptance rate, rating — *mock*
-- [x] Earnings history (today/week/month) + cash out — *mock*
+- [x] Earnings dashboard (today/week/month) — **real** (`driver_earnings_view`; zero until trips complete)
+- [x] Acceptance rate, rating, charging map + "I'm charging" — **real**
 
-**Exit criteria:** Rider request → Driver accepts → trip completes → both sides settle, fully on the shared backend. *(UI done; needs Supabase.)*
+**Exit criteria:** Rider request → Driver accepts → trip completes → both sides settle, fully on the shared backend. *(Accounts real; the request→accept→complete loop is the next step.)*
 
 ---
 
 ## Phase 3 — Admin MVP
 
-**Status:** UI mock complete ✅ · backend + real RBAC pending ⏳ · **Goal:** Ops can oversee and intervene in both sides of the network.
+**Status:** **Real** ✅ (login, approvals, trips, fleet, support, KPIs) · Pricing/Finance/Analytics still config ⏳ · **Goal:** Ops can oversee and intervene in both sides of the network.
 
-- [~] Admin auth + role-based access — *mock email/password; roles listed, not enforced*
-- [x] Driver approval queue (review docs, approve/reject, suspend/reactivate) — *mock, live via Riverpod*
-- [~] User management — *drivers done (mock); rider management TBD*
-- [x] Live ops map (active drivers + ongoing trips + demand hotspots) — *mock*
-- [x] Trip inspection + manual intervention (reassign, cancel, refund) — *mock; cancel updates state*
-- [x] Basic support/dispute view — *mock ticket queue*
+- [x] Admin auth + RBAC — **real** email/password login + **role guard** (non-admins rejected); admins provisioned in Supabase dashboard; RLS enforces scope
+- [x] Driver approval queue — **real** (`profiles`/`driver_details`); approve/reject/suspend/reactivate via `admin_set_driver_status`
+- [~] User management — *drivers real; rider management TBD*
+- [x] Live ops map — **real** fleet markers (`driver_locations`) + ongoing trips; demand hotspots still illustrative
+- [x] Trip inspection + intervention — **real** trips; **cancel** via `cancel_trip` RPC (reassign/refund still stubs)
+- [x] Support/dispute view — **real** `support_tickets`
+- [x] Overview KPIs — **real** (active trips, active drivers, completed, revenue, pending)
 
-**Exit criteria:** A driver can only operate after Admin approval, and ops can monitor + intervene in live trips. *(UI done; needs Supabase + RLS to be real.)*
+**Exit criteria:** A driver can only operate after Admin approval ✅, and ops can monitor + intervene in live trips *(intervention real; live trips appear once trips are wired)*.
 
 ---
 
 ## Phase 4 — EV Differentiators
 
-**Status:** Partially represented in mock UI ✅ · real logic pending ⏳ · **Goal:** The features that make this an *EV* platform, not just a cab app.
+**Status:** Charging + battery/range **real** on driver side ✅ · range-aware dispatch authored, not yet exercised ⏳ · **Goal:** The features that make this an *EV* platform, not just a cab app.
 
-- [~] Driver battery/range display — *shown (mock); manual input / telematics TBD*
-- [ ] Range-aware dispatch (only assign reachable trips) — *needs backend dispatch*
-- [~] Charging-station map (DEWA EV Green Charger) — *mock stations on map; real DEWA data TBD*
-- [x] "I'm charging" driver status (auto offline → resume) — *mock*
-- [~] Charging-break / range-awareness hint — *static hint (mock)*
-- [x] Rider "battery-aware assurance" indicator — *mock chip on driver card*
-- [x] "CO₂ saved vs. petrol" badge (rider) + sustainability metric (admin) — *mock*
+- [x] Driver battery/range — **real** (from `vehicles`, set at registration); manual input / telematics TBD
+- [~] Range-aware dispatch — *`dispatch_trip` RPC enforces `range_km >= distance`; not exercised until real trips*
+- [x] Charging-station map (DEWA) — **real** stations from `charging_stations` (distance-sorted)
+- [x] "I'm charging" driver status — **real** (flips `vehicles.status` → charging + offline)
+- [~] Charging-break / range-awareness hint — *static hint*
+- [~] Rider "battery-aware assurance" indicator — *mock chip (real once dispatch is wired)*
+- [~] "CO₂ saved vs. petrol" badge (rider) + sustainability metric (admin) — *rider mock; per-trip `co2_saved_kg` computed in `request_ride`/views*
 
 **Exit criteria:** No rider is ever matched to a car that can't complete the trip; charging is a first-class flow for drivers.
 

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../state/admin_controller.dart';
+import '../../state/admin_data.dart';
 import 'trip_detail_screen.dart';
 
-/// Trip search + monitoring.
+String shortId(String id) => id.length > 8 ? id.substring(0, 8) : id;
+
+/// Trip search + monitoring (real data).
 class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
 
@@ -33,19 +35,15 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final trips = ref.watch(adminControllerProvider).trips;
+    final tripsAsync = ref.watch(adminTripsProvider);
     final q = _query.text.trim().toLowerCase();
-    final results = trips.where((t) {
-      if (!_matchesFilter(t)) return false;
-      if (q.isEmpty) return true;
-      return t.id.toLowerCase().contains(q) ||
-          t.riderName.toLowerCase().contains(q) ||
-          t.driverName.toLowerCase().contains(q) ||
-          t.toName.toLowerCase().contains(q);
-    }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Trips')),
+      appBar: AppBar(title: const Text('Trips'), actions: [
+        IconButton(
+            onPressed: () => ref.invalidate(adminTripsProvider),
+            icon: const Icon(Icons.refresh)),
+      ]),
       body: SafeArea(
         top: false,
         child: Column(
@@ -89,9 +87,28 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [for (final t in results) _TripCard(trip: t)],
+              child: tripsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Could not load trips.\n$e')),
+                data: (trips) {
+                  final results = trips.where((t) {
+                    if (!_matchesFilter(t)) return false;
+                    if (q.isEmpty) return true;
+                    return t.id.toLowerCase().contains(q) ||
+                        t.riderName.toLowerCase().contains(q) ||
+                        t.driverName.toLowerCase().contains(q) ||
+                        t.toName.toLowerCase().contains(q);
+                  }).toList();
+                  if (results.isEmpty) {
+                    return const Center(
+                        child: Text('No trips.',
+                            style: TextStyle(color: EvcColors.slate)));
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    children: [for (final t in results) _TripCard(trip: t)],
+                  );
+                },
               ),
             ),
           ],
@@ -126,7 +143,7 @@ class _TripCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(trip.id,
+                  Text('#${shortId(trip.id)}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 13)),
                   const Spacer(),

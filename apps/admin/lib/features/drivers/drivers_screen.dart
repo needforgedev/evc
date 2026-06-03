@@ -3,48 +3,94 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../state/admin_controller.dart';
+import '../../state/admin_data.dart';
 import 'driver_detail_screen.dart';
 
-/// Driver management — approval queue + roster.
+/// Driver management — approval queue + roster (real data).
 class DriversScreen extends ConsumerWidget {
   const DriversScreen({super.key});
 
+  Future<void> _act(BuildContext context, WidgetRef ref, String id,
+      String status, String msg) async {
+    try {
+      await AdminActions.setDriverStatus(id, status);
+      ref.invalidate(adminDriversProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final admin = ref.watch(adminControllerProvider);
-    final ctrl = ref.read(adminControllerProvider.notifier);
-    final pending = admin.pending;
-    final roster = admin.drivers
-        .where((d) => d.status != DriverAccountStatus.pending)
-        .toList();
+    final driversAsync = ref.watch(adminDriversProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Drivers')),
+      appBar: AppBar(
+        title: const Text('Drivers'),
+        actions: [
+          IconButton(
+            onPressed: () => ref.invalidate(adminDriversProvider),
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: SafeArea(
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          children: [
-            if (pending.isNotEmpty) ...[
-              Text('Pending approval · ${pending.length}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 16)),
-              const SizedBox(height: 8),
-              for (final d in pending)
-                _PendingCard(
-                  driver: d,
-                  onApprove: () => ctrl.approveDriver(d.name),
-                  onReject: () => ctrl.rejectDriver(d.name),
-                  onTap: () => _open(context, d),
-                ),
-              const SizedBox(height: 20),
-            ],
-            const Text('All drivers',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            const SizedBox(height: 8),
-            for (final d in roster) _RosterTile(driver: d, onTap: () => _open(context, d)),
-          ],
+        child: driversAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load drivers.\n$e')),
+          data: (drivers) {
+            final pending = drivers
+                .where((d) => d.status == DriverAccountStatus.pending)
+                .toList();
+            final roster = drivers
+                .where((d) => d.status != DriverAccountStatus.pending)
+                .toList();
+            return RefreshIndicator(
+              onRefresh: () async => ref.invalidate(adminDriversProvider),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: [
+                  if (pending.isNotEmpty) ...[
+                    Text('Pending approval · ${pending.length}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    for (final d in pending)
+                      _PendingCard(
+                        driver: d,
+                        onApprove: () => _act(context, ref, d.id, 'active',
+                            '${d.name} approved'),
+                        onReject: () => _act(context, ref, d.id, 'suspended',
+                            '${d.name} rejected'),
+                        onTap: () => _open(context, d),
+                      ),
+                    const SizedBox(height: 20),
+                  ],
+                  const Text('All drivers',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  if (roster.isEmpty && pending.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                          child: Text('No drivers yet.',
+                              style: TextStyle(color: EvcColors.slate))),
+                    ),
+                  for (final d in roster)
+                    _RosterTile(driver: d, onTap: () => _open(context, d)),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -100,9 +146,10 @@ class _PendingCard extends StatelessWidget {
                         Text('${driver.vehicleModel} · ${driver.ownerLabel}',
                             style: const TextStyle(
                                 color: EvcColors.slate, fontSize: 13)),
-                        Text(driver.appliedLabel,
-                            style: const TextStyle(
-                                color: EvcColors.slate, fontSize: 12)),
+                        if (driver.appliedLabel.isNotEmpty)
+                          Text(driver.appliedLabel,
+                              style: const TextStyle(
+                                  color: EvcColors.slate, fontSize: 12)),
                       ],
                     ),
                   ),

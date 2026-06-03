@@ -4,50 +4,63 @@ import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../mock/admin_mock.dart';
-import '../../state/admin_controller.dart';
+import '../../state/admin_data.dart';
 import '../../widgets/ops_map.dart';
 import '../trips/trip_detail_screen.dart';
+import '../trips/trips_screen.dart' show shortId;
 
-/// Live operations map — fleet, demand hotspots, and a sheet of ongoing trips.
+/// Live operations map — real fleet markers + ongoing trips.
 class LiveMapScreen extends ConsumerWidget {
   const LiveMapScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ongoing = ref.watch(adminControllerProvider).ongoing;
+    final live = ref.watch(adminLiveProvider).value ?? const [];
+    final ongoing = (ref.watch(adminTripsProvider).value ?? const [])
+        .where((t) => t.status == AdminTripStatus.ongoing)
+        .toList();
 
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: OpsMap(fleet: AdminMock.fleet, hotspots: AdminMock.hotspots),
+          Positioned.fill(
+            child: OpsMap(fleet: live, hotspots: AdminMock.hotspots),
           ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(EvcRadius.lg),
-                  boxShadow: const [
-                    BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: Offset(0, 2)),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _Legend(color: EvcColors.primary, label: 'Active'),
-                    SizedBox(width: 12),
-                    _Legend(color: EvcColors.warning, label: 'Charging'),
-                    SizedBox(width: 12),
-                    _Legend(color: EvcColors.danger, label: 'Maintenance'),
-                  ],
-                ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(EvcRadius.lg),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 8,
+                            offset: Offset(0, 2)),
+                      ],
+                    ),
+                    child: Text('${live.length} drivers online',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                  const Spacer(),
+                  Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 2,
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () {
+                        ref.invalidate(adminLiveProvider);
+                        ref.invalidate(adminTripsProvider);
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -86,6 +99,12 @@ class LiveMapScreen extends ConsumerWidget {
                         style: const TextStyle(
                             fontWeight: FontWeight.w800, fontSize: 18)),
                     const SizedBox(height: 12),
+                    if (ongoing.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('No active trips right now.',
+                            style: TextStyle(color: EvcColors.slate)),
+                      ),
                     for (final t in ongoing) _TripTile(trip: t),
                   ],
                 ),
@@ -94,29 +113,6 @@ class LiveMapScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend({required this.color, required this.label});
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-      ],
     );
   }
 }
@@ -142,7 +138,7 @@ class _TripTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text('${trip.driverName} · ${trip.stageLabel}'),
-        trailing: Text('${trip.etaMinutes}m',
+        trailing: Text('#${shortId(trip.id)}',
             style: const TextStyle(
                 fontWeight: FontWeight.w800, color: EvcColors.slate)),
       ),
