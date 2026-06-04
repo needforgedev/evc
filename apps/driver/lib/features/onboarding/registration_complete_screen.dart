@@ -5,7 +5,7 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../state/driver_account.dart';
 import '../../state/onboarding_controller.dart';
-import '../shell/main_shell.dart';
+import '../shell/driver_gate.dart';
 
 /// Shown after a successful registration. The driver account is created and
 /// sits in the approval queue until ops verify the documents.
@@ -86,16 +86,22 @@ class RegistrationCompleteScreen extends ConsumerWidget {
                 ),
               ],
               const Spacer(),
+              const Text(
+                'Next: upload your documents to activate your account.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: EvcColors.slate, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
               FilledButton(
                 onPressed: () {
                   ref.read(onboardingControllerProvider.notifier).reset();
-                  ref.invalidate(currentDriverProvider); // load the new driver
+                  ref.invalidate(currentDriverProvider);
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const MainShell()),
+                    MaterialPageRoute(builder: (_) => const DriverGate()),
                     (route) => false,
                   );
                 },
-                child: const Text('Continue to dashboard'),
+                child: const Text('Upload documents'),
               ),
             ],
           ),

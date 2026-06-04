@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 
 import '../../state/onboarding_controller.dart';
-import 'docs_screen.dart';
+import 'otp_screen.dart';
 
 /// Collects the driver's profile + EV details before verification.
 class DetailsScreen extends ConsumerStatefulWidget {
@@ -47,7 +47,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           rangeKm: int.tryParse(_range.text) ?? 320,
         );
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DocsScreen()),
+      MaterialPageRoute(builder: (_) => const OtpScreen()),
     );
   }
 

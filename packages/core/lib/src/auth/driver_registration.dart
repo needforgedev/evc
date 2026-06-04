@@ -15,7 +15,6 @@ class DriverRegistrationData {
     required this.ownership,
     required this.batteryPercent,
     required this.rangeKm,
-    this.providedDocs = const {},
   });
 
   final String phone;
@@ -26,10 +25,6 @@ class DriverRegistrationData {
   final OwnershipType ownership;
   final int batteryPercent;
   final int rangeKm;
-
-  /// `doc_type` enum values the driver "uploaded" (no bucket yet), e.g.
-  /// {'license', 'rta_permit', 'emirates_id', 'vehicle_registration', 'insurance'}.
-  final Set<String> providedDocs;
 }
 
 /// Registers a driver end-to-end: dev-OTP sign-in, then persist profile +
@@ -73,22 +68,7 @@ abstract final class DriverRegistration {
             ? 'Company-owned'
             : 'Driver-owned',
       }).eq('driver_id', uid);
-
-      // Document metadata only — no storage bucket yet.
-      if (d.providedDocs.isNotEmpty) {
-        await client.from('driver_documents').upsert(
-          [
-            for (final type in d.providedDocs)
-              {
-                'driver_id': uid,
-                'type': type,
-                'storage_path': 'mock://no-bucket',
-                'review_status': 'pending',
-              },
-          ],
-          onConflict: 'driver_id,type',
-        );
-      }
+      // Documents are uploaded separately, after sign-up (Documents screen).
     } on PostgrestException catch (e) {
       throw RegistrationException('Could not save driver details: ${e.message}');
     }

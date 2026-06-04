@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 
 /// Data accumulated across the driver onboarding steps
-/// (phone → details → docs → OTP).
+/// (phone → details → OTP). Documents are uploaded separately, after sign-up.
 @immutable
 class OnboardingDraft {
   const OnboardingDraft({
@@ -15,7 +15,6 @@ class OnboardingDraft {
     this.ownership = OwnershipType.driver,
     this.batteryPercent = 80,
     this.rangeKm = 320,
-    this.docs = const {},
   });
 
   final String phone;
@@ -26,7 +25,6 @@ class OnboardingDraft {
   final OwnershipType ownership;
   final int batteryPercent;
   final int rangeKm;
-  final Set<String> docs;
 
   OnboardingDraft copyWith({
     String? phone,
@@ -37,7 +35,6 @@ class OnboardingDraft {
     OwnershipType? ownership,
     int? batteryPercent,
     int? rangeKm,
-    Set<String>? docs,
   }) {
     return OnboardingDraft(
       phone: phone ?? this.phone,
@@ -48,19 +45,9 @@ class OnboardingDraft {
       ownership: ownership ?? this.ownership,
       batteryPercent: batteryPercent ?? this.batteryPercent,
       rangeKm: rangeKm ?? this.rangeKm,
-      docs: docs ?? this.docs,
     );
   }
 }
-
-/// All requestable driver documents (`doc_type` enum value → label).
-const List<(String, String)> kDriverDocTypes = [
-  ('license', 'Driving license'),
-  ('rta_permit', 'RTA driver permit'),
-  ('emirates_id', 'Emirates ID'),
-  ('vehicle_registration', 'Vehicle registration'),
-  ('insurance', 'Insurance'),
-];
 
 class OnboardingController extends Notifier<OnboardingDraft> {
   @override
@@ -88,12 +75,6 @@ class OnboardingController extends Notifier<OnboardingDraft> {
     );
   }
 
-  void toggleDoc(String type) {
-    final next = {...state.docs};
-    next.contains(type) ? next.remove(type) : next.add(type);
-    state = state.copyWith(docs: next);
-  }
-
   /// Persists the driver to Supabase (or no-ops in mock mode). Throws
   /// [RegistrationException] on failure.
   Future<void> submit() {
@@ -107,7 +88,6 @@ class OnboardingController extends Notifier<OnboardingDraft> {
       ownership: d.ownership,
       batteryPercent: d.batteryPercent,
       rangeKm: d.rangeKm,
-      providedDocs: d.docs,
     ));
   }
 

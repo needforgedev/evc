@@ -4,6 +4,7 @@ import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../state/driver_account.dart';
+import '../documents/documents_screen.dart';
 import '../onboarding/splash_screen.dart';
 
 /// Driver account — real profile, vehicle, ratings and settings.
@@ -84,7 +85,11 @@ class AccountScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     _tile(Icons.directions_car_outlined, 'My vehicle'),
-                    _tile(Icons.badge_outlined, 'Documents & compliance'),
+                    _tile(Icons.badge_outlined, 'Documents & compliance',
+                        onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const DocumentsScreen()),
+                            )),
                     _tile(Icons.account_balance_outlined, 'Payouts & bank'),
                     _tile(Icons.receipt_long_outlined, 'Tax summary'),
                     _tile(Icons.help_outline, 'Support & disputes'),
@@ -136,13 +141,13 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
-  Widget _tile(IconData icon, String label) {
+  Widget _tile(IconData icon, String label, {VoidCallback? onTap}) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: EvcColors.ink),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       trailing: const Icon(Icons.chevron_right, color: EvcColors.slate),
-      onTap: () {},
+      onTap: onTap ?? () {},
     );
   }
 }

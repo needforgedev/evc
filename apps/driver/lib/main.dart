@@ -4,7 +4,7 @@ import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import 'features/onboarding/splash_screen.dart';
-import 'features/shell/main_shell.dart';
+import 'features/shell/driver_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,9 +23,9 @@ class EvcDriverApp extends StatelessWidget {
       title: EvcApp.driver.displayName,
       theme: evcTheme(),
       debugShowCheckedModeBanner: false,
-      // Once registered on this device, the session is restored from storage —
-      // the driver goes straight to the dashboard, no re-login.
-      home: EvcSupabase.hasSession ? const MainShell() : const SplashScreen(),
+      // Registered on this device → the gate decides: dashboard once all docs
+      // are uploaded, otherwise the mandatory upload screen. No re-login.
+      home: EvcSupabase.hasSession ? const DriverGate() : const SplashScreen(),
     );
   }
 }
