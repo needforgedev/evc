@@ -24,3 +24,5 @@ export 'src/supabase/evc_supabase.dart';
 export 'src/auth/dev_auth.dart';
 export 'src/auth/driver_registration.dart';
 export 'src/auth/rider_registration.dart';
+export 'src/trips/active_trip.dart';
+export 'src/trips/evc_trips.dart';

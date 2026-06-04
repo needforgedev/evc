@@ -6,9 +6,11 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 import '../../mock/mock_data.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_data.dart';
+import '../../state/driver_job_provider.dart';
+import '../trip/active_trip_screen.dart';
 
 /// Driver home — map, real status/battery, and the online control (gated on
-/// account approval).
+/// account approval). Presents incoming jobs (realtime) full-screen.
 class DriverHomeScreen extends ConsumerStatefulWidget {
   const DriverHomeScreen({super.key});
 
@@ -18,6 +20,7 @@ class DriverHomeScreen extends ConsumerStatefulWidget {
 
 class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   bool _busy = false;
+  bool _jobOpen = false;
 
   Future<void> _toggleOnline(DriverAccount d) async {
     setState(() => _busy = true);
@@ -36,6 +39,20 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Present an incoming/active job full-screen (offer → drive → complete).
+    ref.listen(driverJobProvider, (prev, next) {
+      if (next.value != null && !_jobOpen) {
+        _jobOpen = true;
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const ActiveTripScreen()))
+            .then((_) {
+          _jobOpen = false;
+          ref.invalidate(driverEarningsProvider);
+          ref.invalidate(currentDriverProvider);
+        });
+      }
+    });
+
     final driverAsync = ref.watch(currentDriverProvider);
 
     return Scaffold(

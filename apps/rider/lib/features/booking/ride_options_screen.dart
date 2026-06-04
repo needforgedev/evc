@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../mock/mock_data.dart';
-import '../../state/booking_controller.dart';
-import '../../state/trip_controller.dart';
 import 'package:evc_maps/evc_maps.dart';
 
-import '../trip/trip_screen.dart';
+import '../../mock/mock_data.dart';
+import '../../state/booking_controller.dart';
+import '../trip/live_trip_screen.dart';
 
 /// Choose a ride tier + payment, see the upfront fare, and confirm.
 class RideOptionsScreen extends ConsumerWidget {
@@ -178,12 +177,7 @@ class RideOptionsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               FilledButton(
-                onPressed: () {
-                  ref.read(tripControllerProvider.notifier).start();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TripScreen()),
-                  );
-                },
+                onPressed: () => _confirm(context, ref, booking),
                 child: Text(
                     'Confirm ${selected.name}  ·  AED ${selected.fareAed.toStringAsFixed(2)}'),
               ),
@@ -192,6 +186,42 @@ class RideOptionsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirm(
+      BuildContext context, WidgetRef ref, BookingState booking) async {
+    final dest = booking.destination;
+    if (dest == null) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final trip = await EvcTrips.requestRide(
+        tierId: booking.effectiveTier.id,
+        pickupName: booking.pickup.name,
+        pickupAddress: booking.pickup.address,
+        pickupLat: booking.pickup.lat,
+        pickupLng: booking.pickup.lng,
+        destName: dest.name,
+        destAddress: dest.address,
+        destLat: dest.lat,
+        destLng: dest.lng,
+        paymentType: booking.payment.type,
+      );
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // dismiss loading
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => LiveTripScreen(tripId: trip.id)),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not request ride: $e')));
+    }
   }
 
   void _pickPayment(BuildContext context, WidgetRef ref) {
