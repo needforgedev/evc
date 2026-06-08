@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../state/driver_account.dart';
 import '../../state/onboarding_controller.dart';
-import 'registration_complete_screen.dart';
+import '../shell/driver_gate.dart';
+import 'details_screen.dart';
 
-/// Verification step. Dev OTP: any number signs in with the fixed code (7464).
-/// On success the driver is registered (real Supabase rows, or mock if creds
-/// aren't set yet).
+/// Real OTP verification. On success we sign into the (existing or new) account
+/// keyed by phone, then branch: registered driver → dashboard (LOGIN);
+/// brand-new → collect details (REGISTER).
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
@@ -20,7 +22,7 @@ class OtpScreen extends ConsumerStatefulWidget {
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
-  static const _length = 4;
+  static const _length = 6;
   bool _busy = false;
 
   String get _code => _controller.text;
@@ -39,32 +41,50 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _verify() async {
-    if (!verifyDevOtp(_code)) {
-      _focus.unfocus();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect code. Try the demo code 7464.')),
-      );
-      return;
-    }
-
+    final phone = ref.read(onboardingControllerProvider).phone;
     setState(() => _busy = true);
     try {
-      await ref.read(onboardingControllerProvider.notifier).submit();
+      final ok = await EvcOtp.verifyOtp(phone, _code);
+      if (!ok) {
+        _focus.unfocus();
+        if (mounted) {
+          setState(() => _busy = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Incorrect or expired code.')),
+          );
+        }
+        return;
+      }
+
+      // Establish the session (signs into the existing account, or creates one).
+      final uid = await EvcDevAuth.signIn(role: 'driver', phone: phone);
+      if (uid == null) throw Exception('Sign-in failed.');
+
+      // Registered already? (has a vehicle) → LOGIN. Otherwise → REGISTER.
+      final details = await EvcSupabase.client
+          .from('driver_details')
+          .select('current_vehicle_id')
+          .eq('driver_id', uid)
+          .maybeSingle();
+      final registered = details?['current_vehicle_id'] != null;
+
+      ref.invalidate(currentDriverProvider);
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const RegistrationCompleteScreen()),
-        (route) => false,
-      );
-    } on RegistrationException catch (e) {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      if (registered) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const DriverGate()),
+          (route) => false,
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const DetailsScreen()),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+          .showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -85,7 +105,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              Text('Enter the code sent to $phone',
+              Text('Enter the 6-digit code we sent to your WhatsApp for $phone.',
                   style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 32),
               GestureDetector(
@@ -93,8 +113,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 child: Stack(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(_length, _otpCell),
+                      children: [
+                        for (int i = 0; i < _length; i++)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: _otpCell(i),
+                            ),
+                          ),
+                      ],
                     ),
                     Positioned.fill(
                       child: Opacity(
@@ -116,12 +143,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerRight,
-                child: Text('Demo code: 7464',
-                    style: TextStyle(color: EvcColors.slate, fontSize: 12)),
-              ),
               const Spacer(),
               FilledButton(
                 onPressed: (_code.length == _length && !_busy) ? _verify : null,
@@ -130,9 +151,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         height: 22,
                         width: 22,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2.5, color: Colors.white),
-                      )
-                    : const Text('Verify & register'),
+                            strokeWidth: 2.5, color: Colors.white))
+                    : const Text('Verify'),
               ),
             ],
           ),
@@ -144,20 +164,21 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Widget _otpCell(int i) {
     final filled = i < _code.length;
     final isCursor = i == _code.length;
-    return Container(
-      width: 64,
-      height: 68,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: EvcColors.surface,
-        borderRadius: BorderRadius.circular(EvcRadius.sm),
-        border: Border.all(
-          color: isCursor ? EvcColors.primary : EvcColors.line,
-          width: isCursor ? 1.8 : 1,
+    return AspectRatio(
+      aspectRatio: 0.85,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: EvcColors.surface,
+          borderRadius: BorderRadius.circular(EvcRadius.sm),
+          border: Border.all(
+            color: isCursor ? EvcColors.primary : EvcColors.line,
+            width: isCursor ? 1.8 : 1,
+          ),
         ),
+        child: Text(filled ? _code[i] : '',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
       ),
-      child: Text(filled ? _code[i] : '',
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
     );
   }
 }

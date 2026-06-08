@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../state/onboarding_controller.dart';
-import 'otp_screen.dart';
+import '../../state/rider_account.dart';
+import '../home/home_screen.dart';
 
-/// Collects the rider's name (and optional email) before verification.
+/// Collects a new rider's name (after their number is verified), then creates
+/// the account and goes home.
 class DetailsScreen extends ConsumerStatefulWidget {
   const DetailsScreen({super.key});
 
@@ -16,6 +18,7 @@ class DetailsScreen extends ConsumerStatefulWidget {
 class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
+  bool _busy = false;
 
   bool get _valid => _name.text.trim().isNotEmpty;
 
@@ -26,14 +29,26 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     ref.read(onboardingControllerProvider.notifier).setDetails(
           fullName: _name.text.trim(),
           email: _email.text.trim(),
         );
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const OtpScreen()),
-    );
+    setState(() => _busy = true);
+    try {
+      await ref.read(onboardingControllerProvider.notifier).submit();
+      ref.invalidate(currentRiderProvider);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+    }
   }
 
   @override
@@ -76,8 +91,14 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _valid ? _continue : null,
-                child: const Text('Continue'),
+                onPressed: (_valid && !_busy) ? _continue : null,
+                child: _busy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white))
+                    : const Text('Continue'),
               ),
             ],
           ),

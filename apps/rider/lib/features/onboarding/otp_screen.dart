@@ -7,9 +7,11 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 import '../../state/onboarding_controller.dart';
 import '../../state/rider_account.dart';
 import '../home/home_screen.dart';
+import 'details_screen.dart';
 
-/// Verification step. Dev OTP: any number signs in with the fixed code (7464).
-/// On success the rider account is created (real Supabase rows, or mock).
+/// Real OTP verification. On success we sign into the (existing or new) account
+/// keyed by phone, then branch: returning rider → home (LOGIN);
+/// brand-new → collect name (REGISTER).
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
@@ -20,7 +22,7 @@ class OtpScreen extends ConsumerStatefulWidget {
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
-  static const _length = 4;
+  static const _length = 6;
   bool _busy = false;
 
   String get _code => _controller.text;
@@ -39,27 +41,51 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _verify() async {
-    if (!verifyDevOtp(_code)) {
-      _focus.unfocus();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect code. Try the demo code 7464.')),
-      );
-      return;
-    }
+    final phone = ref.read(onboardingControllerProvider).phone;
     setState(() => _busy = true);
     try {
-      await ref.read(onboardingControllerProvider.notifier).submit();
+      final ok = await EvcOtp.verifyOtp(phone, _code);
+      if (!ok) {
+        _focus.unfocus();
+        if (mounted) {
+          setState(() => _busy = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Incorrect or expired code.')),
+          );
+        }
+        return;
+      }
+
+      // Establish the session (signs into the existing account, or creates one).
+      final uid = await EvcDevAuth.signIn(role: 'rider', phone: phone);
+      if (uid == null) throw Exception('Sign-in failed.');
+
+      // Registered already? (has a name) → LOGIN. Otherwise → REGISTER.
+      final profile = await EvcSupabase.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', uid)
+          .maybeSingle();
+      final name = (profile?['full_name'] as String?)?.trim() ?? '';
+      final registered = name.isNotEmpty;
+
       ref.invalidate(currentRiderProvider);
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false,
-      );
+      if (registered) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const DetailsScreen()),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+          .showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -80,7 +106,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              Text('Enter the code sent to $phone',
+              Text('Enter the 6-digit code we sent to your WhatsApp for $phone.',
                   style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 32),
               GestureDetector(
@@ -88,8 +114,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 child: Stack(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(_length, _otpCell),
+                      children: [
+                        for (int i = 0; i < _length; i++)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: _otpCell(i),
+                            ),
+                          ),
+                      ],
                     ),
                     Positioned.fill(
                       child: Opacity(
@@ -110,12 +143,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerRight,
-                child: Text('Demo code: 7464',
-                    style: TextStyle(color: EvcColors.slate, fontSize: 12)),
               ),
               const Spacer(),
               FilledButton(
@@ -138,20 +165,21 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Widget _otpCell(int i) {
     final filled = i < _code.length;
     final isCursor = i == _code.length;
-    return Container(
-      width: 64,
-      height: 68,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: EvcColors.surface,
-        borderRadius: BorderRadius.circular(EvcRadius.sm),
-        border: Border.all(
-          color: isCursor ? EvcColors.primary : EvcColors.line,
-          width: isCursor ? 1.8 : 1,
+    return AspectRatio(
+      aspectRatio: 0.85,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: EvcColors.surface,
+          borderRadius: BorderRadius.circular(EvcRadius.sm),
+          border: Border.all(
+            color: isCursor ? EvcColors.primary : EvcColors.line,
+            width: isCursor ? 1.8 : 1,
+          ),
         ),
+        child: Text(filled ? _code[i] : '',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
       ),
-      child: Text(filled ? _code[i] : '',
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
     );
   }
 }

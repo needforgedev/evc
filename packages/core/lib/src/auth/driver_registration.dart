@@ -47,27 +47,40 @@ abstract final class DriverRegistration {
         if (d.email != null && d.email!.isNotEmpty) 'email': d.email,
       }).eq('id', uid);
 
-      // Vehicle (RLS: owner_driver_id must equal auth.uid()).
-      final vehicle = await client
-          .from('vehicles')
-          .insert({
-            'plate': d.plate,
-            'model': d.vehicleModel,
-            'ownership': d.ownership.name,
-            'owner_driver_id': uid,
-            'battery_percent': d.batteryPercent,
-            'range_km': d.rangeKm,
-            'status': 'active',
-          })
-          .select('id')
-          .single();
+      final ownerLabel =
+          d.ownership == OwnershipType.company ? 'Company-owned' : 'Driver-owned';
 
-      await client.from('driver_details').update({
-        'current_vehicle_id': vehicle['id'],
-        'owner_label': d.ownership == OwnershipType.company
-            ? 'Company-owned'
-            : 'Driver-owned',
-      }).eq('driver_id', uid);
+      // Idempotent: only create a vehicle if the driver doesn't already have one
+      // (prevents duplicate vehicle rows on re-registration / re-login).
+      final details = await client
+          .from('driver_details')
+          .select('current_vehicle_id')
+          .eq('driver_id', uid)
+          .maybeSingle();
+
+      if (details?['current_vehicle_id'] == null) {
+        final vehicle = await client
+            .from('vehicles')
+            .insert({
+              'plate': d.plate,
+              'model': d.vehicleModel,
+              'ownership': d.ownership.name,
+              'owner_driver_id': uid,
+              'battery_percent': d.batteryPercent,
+              'range_km': d.rangeKm,
+              'status': 'active',
+            })
+            .select('id')
+            .single();
+        await client.from('driver_details').update({
+          'current_vehicle_id': vehicle['id'],
+          'owner_label': ownerLabel,
+        }).eq('driver_id', uid);
+      } else {
+        await client
+            .from('driver_details')
+            .update({'owner_label': ownerLabel}).eq('driver_id', uid);
+      }
       // Documents are uploaded separately, after sign-up (Documents screen).
     } on PostgrestException catch (e) {
       throw RegistrationException('Could not save driver details: ${e.message}');

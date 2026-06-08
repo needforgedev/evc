@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../state/onboarding_controller.dart';
-import 'details_screen.dart';
+import 'otp_screen.dart';
 
-/// Driver phone-number entry (UAE) — first onboarding step. Any number works.
+/// Driver phone entry — sends a real OTP (WhatsApp) then verifies.
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
 
@@ -16,6 +17,7 @@ class PhoneScreen extends ConsumerStatefulWidget {
 
 class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _controller = TextEditingController();
+  bool _busy = false;
   bool get _valid => _controller.text.length >= 9;
 
   @override
@@ -24,12 +26,24 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     super.dispose();
   }
 
-  void _continue() {
-    ref.read(onboardingControllerProvider.notifier)
-        .setPhone('+971${_controller.text}');
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DetailsScreen()),
-    );
+  Future<void> _continue() async {
+    final phone = '+971${_controller.text}';
+    ref.read(onboardingControllerProvider.notifier).setPhone(phone);
+    setState(() => _busy = true);
+    try {
+      await EvcOtp.requestOtp(phone);
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const OtpScreen()),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -42,13 +56,13 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Driver sign up',
+              Text('Driver sign in',
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              const Text('Enter your mobile number to get started.',
+              const Text('Enter your mobile number — we\'ll send a code to verify it.',
                   style: TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 28),
               Row(
@@ -86,8 +100,14 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _valid ? _continue : null,
-                child: const Text('Continue'),
+                onPressed: (_valid && !_busy) ? _continue : null,
+                child: _busy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white))
+                    : const Text('Send code'),
               ),
             ],
           ),

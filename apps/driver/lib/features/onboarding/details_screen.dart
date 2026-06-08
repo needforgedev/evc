@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 
+import '../../state/driver_account.dart';
 import '../../state/onboarding_controller.dart';
-import 'otp_screen.dart';
+import 'registration_complete_screen.dart';
 
-/// Collects the driver's profile + EV details before verification.
+/// Collects a new driver's profile + EV details (after their number is verified),
+/// then persists the account and moves to document upload.
 class DetailsScreen extends ConsumerStatefulWidget {
   const DetailsScreen({super.key});
 
@@ -22,6 +24,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   final _battery = TextEditingController(text: '80');
   final _range = TextEditingController(text: '320');
   OwnershipType _ownership = OwnershipType.driver;
+  bool _busy = false;
 
   bool get _valid =>
       _name.text.trim().isNotEmpty &&
@@ -36,7 +39,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     ref.read(onboardingControllerProvider.notifier).setDetails(
           fullName: _name.text.trim(),
           email: _email.text.trim(),
@@ -46,9 +49,20 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           batteryPercent: int.tryParse(_battery.text) ?? 80,
           rangeKm: int.tryParse(_range.text) ?? 320,
         );
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const OtpScreen()),
-    );
+    setState(() => _busy = true);
+    try {
+      await ref.read(onboardingControllerProvider.notifier).submit();
+      ref.invalidate(currentDriverProvider);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const RegistrationCompleteScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   @override
@@ -149,8 +163,14 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: FilledButton(
-                onPressed: _valid ? _continue : null,
-                child: const Text('Continue'),
+                onPressed: (_valid && !_busy) ? _continue : null,
+                child: _busy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white))
+                    : const Text('Continue'),
               ),
             ),
           ],
