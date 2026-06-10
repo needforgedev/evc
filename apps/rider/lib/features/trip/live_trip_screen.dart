@@ -513,6 +513,7 @@ class _Receipt extends ConsumerWidget {
     final tip = pay?.tip ?? (trip.tip ?? 0);
     final amount = pay?.amount ?? trip.fare;
     final subtotal = amount - vat;
+    final discount = trip.discount ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -525,6 +526,8 @@ class _Receipt extends ConsumerWidget {
         children: [
           _row('Subtotal', 'AED ${subtotal.toStringAsFixed(2)}'),
           _row('VAT (5%)', 'AED ${vat.toStringAsFixed(2)}'),
+          if (discount > 0)
+            _row('Promo discount', '−AED ${discount.toStringAsFixed(2)}'),
           if (tip > 0) _row('Tip', 'AED ${tip.toStringAsFixed(2)}'),
           const Divider(height: 18),
           _row('Total', 'AED ${total.toStringAsFixed(2)}', bold: true),

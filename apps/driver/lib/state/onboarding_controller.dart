@@ -15,6 +15,7 @@ class OnboardingDraft {
     this.ownership = OwnershipType.driver,
     this.batteryPercent = 80,
     this.rangeKm = 320,
+    this.tier = 'go',
   });
 
   final String phone;
@@ -25,6 +26,7 @@ class OnboardingDraft {
   final OwnershipType ownership;
   final int batteryPercent;
   final int rangeKm;
+  final String tier;
 
   OnboardingDraft copyWith({
     String? phone,
@@ -35,6 +37,7 @@ class OnboardingDraft {
     OwnershipType? ownership,
     int? batteryPercent,
     int? rangeKm,
+    String? tier,
   }) {
     return OnboardingDraft(
       phone: phone ?? this.phone,
@@ -45,6 +48,7 @@ class OnboardingDraft {
       ownership: ownership ?? this.ownership,
       batteryPercent: batteryPercent ?? this.batteryPercent,
       rangeKm: rangeKm ?? this.rangeKm,
+      tier: tier ?? this.tier,
     );
   }
 }
@@ -63,6 +67,7 @@ class OnboardingController extends Notifier<OnboardingDraft> {
     required OwnershipType ownership,
     required int batteryPercent,
     required int rangeKm,
+    required String tier,
   }) {
     state = state.copyWith(
       fullName: fullName,
@@ -72,6 +77,7 @@ class OnboardingController extends Notifier<OnboardingDraft> {
       ownership: ownership,
       batteryPercent: batteryPercent,
       rangeKm: rangeKm,
+      tier: tier,
     );
   }
 
@@ -88,6 +94,7 @@ class OnboardingController extends Notifier<OnboardingDraft> {
       ownership: d.ownership,
       batteryPercent: d.batteryPercent,
       rangeKm: d.rangeKm,
+      tier: d.tier,
     ));
   }
 

@@ -15,6 +15,7 @@ class DriverRegistrationData {
     required this.ownership,
     required this.batteryPercent,
     required this.rangeKm,
+    this.tier = 'go',
   });
 
   final String phone;
@@ -25,6 +26,9 @@ class DriverRegistrationData {
   final OwnershipType ownership;
   final int batteryPercent;
   final int rangeKm;
+
+  /// The ride tier this vehicle serves (`ride_tiers.id`): go / comfort / xl / premium.
+  final String tier;
 }
 
 /// Registers a driver end-to-end: dev-OTP sign-in, then persist profile +
@@ -68,6 +72,7 @@ abstract final class DriverRegistration {
               'owner_driver_id': uid,
               'battery_percent': d.batteryPercent,
               'range_km': d.rangeKm,
+              'tier': d.tier,
               'status': 'active',
             })
             .select('id')

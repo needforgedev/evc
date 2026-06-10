@@ -12,12 +12,18 @@ class BookingState {
     required this.payment,
     this.destination,
     this.tier,
+    this.promoCode,
+    this.promoDiscount = 0,
+    this.promoLabel,
   });
 
   final Place pickup;
   final Place? destination;
   final RideTier? tier;
   final PaymentMethod payment;
+  final String? promoCode;
+  final double promoDiscount;
+  final String? promoLabel;
 
   /// Selected tier, falling back to the cheapest so screens always have one.
   RideTier get effectiveTier => tier ?? MockData.tiers.first;
@@ -27,14 +33,28 @@ class BookingState {
     Place? destination,
     RideTier? tier,
     PaymentMethod? payment,
+    String? promoCode,
+    double? promoDiscount,
+    String? promoLabel,
   }) {
     return BookingState(
       pickup: pickup ?? this.pickup,
       destination: destination ?? this.destination,
       tier: tier ?? this.tier,
       payment: payment ?? this.payment,
+      promoCode: promoCode ?? this.promoCode,
+      promoDiscount: promoDiscount ?? this.promoDiscount,
+      promoLabel: promoLabel ?? this.promoLabel,
     );
   }
+
+  /// copyWith can't set nullable fields back to null — used to clear the promo.
+  BookingState clearPromo() => BookingState(
+        pickup: pickup,
+        destination: destination,
+        tier: tier,
+        payment: payment,
+      );
 }
 
 /// Holds the in-progress booking selection (pickup, destination, tier, payment).
@@ -50,10 +70,17 @@ class BookingController extends Notifier<BookingState> {
 
   void setPickup(Place place) => state = state.copyWith(pickup: place);
 
-  void setTier(RideTier tier) => state = state.copyWith(tier: tier);
+  // Changing tier clears any applied promo (a % discount scales with the fare).
+  void setTier(RideTier tier) =>
+      state = state.clearPromo().copyWith(tier: tier);
 
   void setPayment(PaymentMethod payment) =>
       state = state.copyWith(payment: payment);
+
+  void setPromo(String code, double discount, String? label) => state =
+      state.copyWith(promoCode: code, promoDiscount: discount, promoLabel: label);
+
+  void clearPromo() => state = state.clearPromo();
 
   void reset() => state = build();
 }

@@ -37,6 +37,7 @@ class ActiveTrip {
     this.finalFare,
     this.vat,
     this.tip,
+    this.discount,
     this.co2SavedKg,
     this.distanceKm,
     this.durationMin,
@@ -59,6 +60,7 @@ class ActiveTrip {
   final double? finalFare;
   final double? vat;
   final double? tip;
+  final double? discount;
   final double? co2SavedKg;
   final double? distanceKm;
   final int? durationMin;
@@ -86,6 +88,7 @@ class ActiveTrip {
         finalFare: _d(r['final_fare']),
         vat: _d(r['vat']),
         tip: _d(r['tip']),
+        discount: _d(r['discount']),
         co2SavedKg: _d(r['co2_saved_kg']),
         distanceKm: _d(r['distance_km']),
         durationMin: _i(r['duration_min']),

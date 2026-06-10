@@ -24,6 +24,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   final _battery = TextEditingController(text: '80');
   final _range = TextEditingController(text: '320');
   OwnershipType _ownership = OwnershipType.driver;
+  String _tier = 'go';
   bool _busy = false;
 
   bool get _valid =>
@@ -48,6 +49,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           ownership: _ownership,
           batteryPercent: int.tryParse(_battery.text) ?? 80,
           rangeKm: int.tryParse(_range.text) ?? 320,
+          tier: _tier,
         );
     setState(() => _busy = true);
     try {
@@ -157,6 +159,28 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                       ),
                     ],
                   ),
+                  _label('Service tier'),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final t in const [
+                        ('go', 'EVC Go'),
+                        ('comfort', 'Comfort'),
+                        ('xl', 'XL'),
+                        ('premium', 'Premium'),
+                      ])
+                        ChoiceChip(
+                          label: Text(t.$2),
+                          selected: _tier == t.$1,
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() => _tier = t.$1),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                      'The ride class your vehicle serves — riders requesting it are matched to you.',
+                      style: TextStyle(color: Colors.black54, fontSize: 12)),
                 ],
               ),
             ),

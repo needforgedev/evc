@@ -28,18 +28,19 @@ class RideOptionsScreen extends ConsumerWidget {
             booking.pickup.lat, booking.pickup.lng, dest.lat, dest.lng);
 
     // Priced tiers from the real `pricing`/`ride_tiers` tables (fallback to
-    // mock while the config loads).
-    final tiers = (data == null || data.tiers.isEmpty)
-        ? MockData.tiers
-        : [
-            for (final t in data.tiers)
-              _toRideTier(
-                  t,
-                  EvcPricing.estimate(
-                      distanceKm: distanceKm,
-                      multiplier: t.multiplier,
-                      p: data.pricing)),
-          ];
+    // mock while the config loads), cheapest first so the default tier is on top.
+    final tiers = <RideTier>[
+      if (data == null || data.tiers.isEmpty)
+        ...MockData.tiers
+      else
+        for (final t in data.tiers)
+          _toRideTier(
+              t,
+              EvcPricing.estimate(
+                  distanceKm: distanceKm,
+                  multiplier: t.multiplier,
+                  p: data.pricing)),
+    ]..sort((a, b) => a.fareAed.compareTo(b.fareAed));
     final selected = tiers.firstWhere((t) => t.id == booking.effectiveTier.id,
         orElse: () => tiers.first);
     final route = data == null
@@ -52,7 +53,10 @@ class RideOptionsScreen extends ConsumerWidget {
         children: [
           // Map with the route.
           SizedBox(
-            height: MediaQuery.of(context).size.height * 0.36,
+            // Full width — without this the Stack collapses to the back
+            // button's width and the map renders as a narrow centre strip.
+            width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.30,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -209,10 +213,38 @@ class RideOptionsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
+              _PromoRow(
+                applied: booking.promoDiscount > 0,
+                label: booking.promoLabel,
+                discount: booking.promoDiscount,
+                onApply: (code) async {
+                  if (code.trim().isEmpty) return;
+                  try {
+                    final res = await EvcTrips.validatePromo(
+                        code.trim(), selected.fareAed);
+                    if (res.valid && res.discount > 0) {
+                      ref.read(bookingControllerProvider.notifier).setPromo(
+                          code.trim().toUpperCase(),
+                          res.discount,
+                          res.description);
+                    } else if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Invalid or expired promo code.')));
+                    }
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Could not check promo code.')));
+                    }
+                  }
+                },
+                onRemove: () =>
+                    ref.read(bookingControllerProvider.notifier).clearPromo(),
+              ),
+              const SizedBox(height: 10),
               FilledButton(
                 onPressed: () => _confirm(context, ref, booking),
-                child: Text(
-                    'Confirm ${selected.name}  ·  AED ${selected.fareAed.toStringAsFixed(2)}'),
+                child: Text(_confirmLabel(selected, booking.promoDiscount)),
               ),
             ],
           ),
@@ -243,6 +275,7 @@ class RideOptionsScreen extends ConsumerWidget {
         destLat: dest.lat,
         destLng: dest.lng,
         paymentType: booking.payment.type,
+        promoCode: booking.promoCode,
       );
       if (!context.mounted) return;
       Navigator.of(context).pop(); // dismiss loading
@@ -321,6 +354,108 @@ IconData _tierIcon(String id) => switch (id) {
       'premium' => Icons.workspace_premium,
       _ => Icons.directions_car_filled,
     };
+
+String _confirmLabel(RideTier t, double discount) {
+  final net = (t.fareAed - discount).clamp(0.0, double.infinity);
+  return 'Confirm ${t.name}  ·  AED ${net.toStringAsFixed(2)}';
+}
+
+/// Promo-code entry / applied state shown above the confirm button.
+class _PromoRow extends StatefulWidget {
+  const _PromoRow({
+    required this.applied,
+    required this.label,
+    required this.discount,
+    required this.onApply,
+    required this.onRemove,
+  });
+
+  final bool applied;
+  final String? label;
+  final double discount;
+  final Future<void> Function(String code) onApply;
+  final VoidCallback onRemove;
+
+  @override
+  State<_PromoRow> createState() => _PromoRowState();
+}
+
+class _PromoRowState extends State<_PromoRow> {
+  final _controller = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _apply() async {
+    setState(() => _busy = true);
+    await widget.onApply(_controller.text);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.applied) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: EvcColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(EvcRadius.sm),
+          border: Border.all(color: EvcColors.primary),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.local_offer, size: 18, color: EvcColors.primaryDark),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                  '${widget.label ?? 'Promo'} · −AED ${widget.discount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            InkWell(
+              onTap: widget.onRemove,
+              child: const Icon(Icons.close, size: 18, color: EvcColors.slate),
+            ),
+          ],
+        ),
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 48,
+            child: TextField(
+              controller: _controller,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                hintText: 'Promo code',
+                prefixIcon: Icon(Icons.local_offer_outlined),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: _busy ? null : _apply,
+          // Bounded size — the app theme defaults buttons to full width
+          // (infinite min-width), which can't live in a Row.
+          style: OutlinedButton.styleFrom(minimumSize: const Size(96, 48)),
+          child: _busy
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2))
+              : const Text('Apply'),
+        ),
+      ],
+    );
+  }
+}
 
 class _TierTile extends StatelessWidget {
   const _TierTile({

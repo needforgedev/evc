@@ -2,6 +2,14 @@ import '../models/payment_method.dart';
 import '../supabase/evc_supabase.dart';
 import 'active_trip.dart';
 
+/// Result of previewing a promo code.
+class PromoResult {
+  const PromoResult({required this.valid, required this.discount, this.description});
+  final bool valid;
+  final double discount;
+  final String? description;
+}
+
 /// Live trip operations against Supabase (request / stream / cancel).
 abstract final class EvcTrips {
   /// Rider books a ride: creates the `trips` row, prices it (server-side from
@@ -112,6 +120,18 @@ abstract final class EvcTrips {
         'p_trip': tripId,
         'p_amount': amount,
       });
+
+  /// Previews a promo code against a gross [fare] (no redemption side-effect).
+  static Future<PromoResult> validatePromo(String code, num fare) async {
+    final res = await EvcSupabase.client
+        .rpc('validate_promo', params: {'p_code': code, 'p_fare': fare});
+    final m = res as Map?;
+    return PromoResult(
+      valid: m?['valid'] == true,
+      discount: (m?['discount'] as num?)?.toDouble() ?? 0,
+      description: m?['description'] as String?,
+    );
+  }
 
   // request_ride returns a single `public.trips` row; PostgREST may hand it
   // back as an object or a single-element list depending on version.
