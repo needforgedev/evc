@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../mock/mock_data.dart';
+import '../../state/saved_places_provider.dart';
 
 /// Search / pick a destination. Pops with the chosen [Place].
-class DestinationSearchScreen extends StatefulWidget {
+class DestinationSearchScreen extends ConsumerStatefulWidget {
   const DestinationSearchScreen({super.key});
 
   @override
-  State<DestinationSearchScreen> createState() =>
+  ConsumerState<DestinationSearchScreen> createState() =>
       _DestinationSearchScreenState();
 }
 
-class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
+class _DestinationSearchScreenState
+    extends ConsumerState<DestinationSearchScreen> {
   final _query = TextEditingController();
 
-  List<Place> get _results {
+  List<Place> _filter(List<Place> all) {
     final q = _query.text.trim().toLowerCase();
-    final all = [...MockData.savedPlaces, ...MockData.places];
     if (q.isEmpty) return all;
     return all
         .where((p) =>
@@ -35,6 +37,9 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final saved = ref.watch(savedPlacesProvider).value ?? const <SavedPlace>[];
+    final results =
+        _filter([for (final s in saved) s.place, ...MockData.places]);
     return Scaffold(
       appBar: AppBar(title: const Text('Plan your ride')),
       body: SafeArea(
@@ -100,11 +105,11 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
             const Divider(),
             Expanded(
               child: ListView.separated(
-                itemCount: _results.length,
+                itemCount: results.length,
                 separatorBuilder: (_, _) =>
                     const Divider(indent: 64, height: 1),
                 itemBuilder: (context, i) {
-                  final p = _results[i];
+                  final p = results[i];
                   return ListTile(
                     onTap: () => Navigator.of(context).pop(p),
                     leading: CircleAvatar(

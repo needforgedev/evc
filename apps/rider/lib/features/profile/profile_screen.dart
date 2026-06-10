@@ -6,6 +6,7 @@ import '../../state/rider_account.dart';
 import '../../state/rider_history.dart';
 import '../history/history_screen.dart';
 import '../onboarding/splash_screen.dart';
+import '../places/saved_places_screen.dart';
 
 /// Rider account — real profile, sustainability stats, and settings menu.
 class ProfileScreen extends ConsumerWidget {
@@ -95,7 +96,11 @@ class ProfileScreen extends ConsumerWidget {
                             builder: (_) => const HistoryScreen()),
                       )),
               _tile(context, Icons.credit_card, 'Payment methods'),
-              _tile(context, Icons.bookmark_border, 'Saved places'),
+              _tile(context, Icons.bookmark_border, 'Saved places',
+                  onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const SavedPlacesScreen()),
+                      )),
               _tile(context, Icons.shield_outlined, 'Safety'),
               _tile(context, Icons.card_giftcard, 'Refer & earn'),
               _tile(context, Icons.help_outline, 'Help'),

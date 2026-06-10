@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../mock/mock_data.dart';
 import '../../state/booking_controller.dart';
+import '../../state/saved_places_provider.dart';
 import '../booking/ride_options_screen.dart';
+import '../places/saved_places_screen.dart';
 import '../profile/profile_screen.dart';
 import 'package:evc_maps/evc_maps.dart';
 
@@ -82,8 +83,15 @@ class HomeScreen extends ConsumerWidget {
           Align(
             alignment: Alignment.bottomCenter,
             child: _BookingPanel(
+              savedPlaces: ref.watch(savedPlacesProvider).value ?? const [],
               onWhereTo: () => _chooseDestination(context, ref),
               onSaved: (p) => _chooseDestination(context, ref, preset: p),
+              onManage: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SavedPlacesScreen()),
+                );
+                ref.invalidate(savedPlacesProvider);
+              },
             ),
           ),
         ],
@@ -110,10 +118,17 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _BookingPanel extends StatelessWidget {
-  const _BookingPanel({required this.onWhereTo, required this.onSaved});
+  const _BookingPanel({
+    required this.savedPlaces,
+    required this.onWhereTo,
+    required this.onSaved,
+    required this.onManage,
+  });
 
+  final List<SavedPlace> savedPlaces;
   final VoidCallback onWhereTo;
   final ValueChanged<Place> onSaved;
+  final VoidCallback onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -181,10 +196,11 @@ class _BookingPanel extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  for (final p in MockData.savedPlaces) ...[
-                    _SavedChip(place: p, onTap: () => onSaved(p)),
+                  for (final sp in savedPlaces.take(2)) ...[
+                    _SavedChip(place: sp.place, onTap: () => onSaved(sp.place)),
                     const SizedBox(width: 10),
                   ],
+                  _ManageChip(onTap: onManage),
                 ],
               ),
             ],
@@ -216,11 +232,46 @@ class _SavedChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(place.kind == PlaceKind.home ? Icons.home_outlined
-                : Icons.work_outline, size: 18, color: EvcColors.ink),
+            Icon(
+                switch (place.kind) {
+                  PlaceKind.home => Icons.home_outlined,
+                  PlaceKind.work => Icons.work_outline,
+                  _ => Icons.bookmark_outline,
+                },
+                size: 18,
+                color: EvcColors.ink),
             const SizedBox(width: 8),
             Text(place.name,
                 style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManageChip extends StatelessWidget {
+  const _ManageChip({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(EvcRadius.sm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: EvcColors.mist,
+          borderRadius: BorderRadius.circular(EvcRadius.sm),
+          border: Border.all(color: EvcColors.line),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 18, color: EvcColors.ink),
+            SizedBox(width: 6),
+            Text('Saved', style: TextStyle(fontWeight: FontWeight.w700)),
           ],
         ),
       ),

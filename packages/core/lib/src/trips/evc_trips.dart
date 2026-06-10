@@ -106,6 +106,13 @@ abstract final class EvcTrips {
         'p_comment': comment,
       });
 
+  /// Rider-initiated tip on a completed trip (records on trip + payment).
+  static Future<void> addTip(String tripId, num amount) =>
+      EvcSupabase.client.rpc('add_tip', params: {
+        'p_trip': tripId,
+        'p_amount': amount,
+      });
+
   // request_ride returns a single `public.trips` row; PostgREST may hand it
   // back as an object or a single-element list depending on version.
   static Map<String, dynamic> _asRow(dynamic res) {

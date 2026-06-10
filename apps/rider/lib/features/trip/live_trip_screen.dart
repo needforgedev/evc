@@ -56,14 +56,18 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
     if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
-  Future<void> _rate(String driverId, int stars) async {
+  Future<void> _submitRating(
+      String driverId, int stars, List<String> tags, num tip) async {
     try {
-      await EvcTrips.rate(widget.tripId, driverId, stars);
-      if (mounted) setState(() => _rated = true);
+      await EvcTrips.rate(widget.tripId, driverId, stars, tags: tags);
+      if (tip > 0) await EvcTrips.addTip(widget.tripId, tip);
+      if (!mounted) return;
+      ref.invalidate(tripPaymentProvider(widget.tripId)); // refresh receipt tip
+      setState(() => _rated = true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not submit rating: $e')));
+            .showSnackBar(SnackBar(content: Text('Could not submit: $e')));
       }
     }
   }
@@ -256,7 +260,10 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
         if (trip != null) _Receipt(trip: trip),
         const SizedBox(height: 16),
         if (trip?.driverId != null && !_rated)
-          _RatingBar(onRate: (stars) => _rate(trip!.driverId!, stars))
+          _RatingBar(
+            onSubmit: (stars, tags, tip) =>
+                _submitRating(trip!.driverId!, stars, tags, tip),
+          )
         else if (_rated)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 6),
@@ -584,15 +591,33 @@ class _Receipt extends ConsumerWidget {
 }
 
 class _RatingBar extends StatefulWidget {
-  const _RatingBar({required this.onRate});
-  final ValueChanged<int> onRate;
+  const _RatingBar({required this.onSubmit});
+  final Future<void> Function(int stars, List<String> tags, num tip) onSubmit;
 
   @override
   State<_RatingBar> createState() => _RatingBarState();
 }
 
 class _RatingBarState extends State<_RatingBar> {
+  static const _tagOptions = [
+    'Great driving',
+    'Clean car',
+    'Friendly',
+    'On time',
+    'Felt safe',
+  ];
+  static const _tipOptions = <num>[0, 5, 10, 20];
+
   int _stars = 0;
+  final Set<String> _tags = {};
+  num _tip = 0;
+  bool _busy = false;
+
+  Future<void> _submit() async {
+    setState(() => _busy = true);
+    await widget.onSubmit(_stars, _tags.toList(), _tip);
+    if (mounted) setState(() => _busy = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -602,21 +627,78 @@ class _RatingBarState extends State<_RatingBar> {
         const Text('Rate your driver',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (i) {
-            final filled = i < _stars;
-            return IconButton(
-              onPressed: () {
-                setState(() => _stars = i + 1);
-                widget.onRate(i + 1);
-              },
-              icon: Icon(filled ? Icons.star : Icons.star_border,
-                  color: const Color(0xFFF5A623), size: 34),
-            );
-          }),
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(5, (i) {
+              final filled = i < _stars;
+              return IconButton(
+                onPressed: () => setState(() => _stars = i + 1),
+                icon: Icon(filled ? Icons.star : Icons.star_border,
+                    color: const Color(0xFFF5A623), size: 34),
+              );
+            }),
+          ),
         ),
+        if (_stars > 0) ...[
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in _tagOptions)
+                _choice(tag, _tags.contains(tag), () {
+                  setState(() =>
+                      _tags.contains(tag) ? _tags.remove(tag) : _tags.add(tag));
+                }),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text('Add a tip (optional)',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final amt in _tipOptions)
+                _choice(amt == 0 ? 'No tip' : 'AED $amt', _tip == amt,
+                    () => setState(() => _tip = amt)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _busy ? null : _submit,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            child: _busy
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: Colors.white))
+                : Text(_tip > 0 ? 'Submit & tip AED $_tip' : 'Submit rating'),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _choice(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? EvcColors.primary : EvcColors.mist,
+          borderRadius: BorderRadius.circular(EvcRadius.lg),
+          border: Border.all(
+              color: selected ? EvcColors.primary : EvcColors.line),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: selected ? Colors.white : EvcColors.ink)),
+      ),
     );
   }
 }

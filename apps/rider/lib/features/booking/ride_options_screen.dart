@@ -7,6 +7,7 @@ import 'package:evc_maps/evc_maps.dart';
 
 import '../../mock/mock_data.dart';
 import '../../state/booking_controller.dart';
+import '../../state/pricing_provider.dart';
 import '../trip/live_trip_screen.dart';
 
 /// Choose a ride tier + payment, see the upfront fare, and confirm.
@@ -17,7 +18,34 @@ class RideOptionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final booking = ref.watch(bookingControllerProvider);
     final controller = ref.read(bookingControllerProvider.notifier);
-    final selected = booking.effectiveTier;
+    final data = ref.watch(pricingDataProvider).value;
+
+    // Real distance pickup→destination (same coords the server will price on).
+    final dest = booking.destination;
+    final distanceKm = dest == null
+        ? 0.0
+        : EvcPricing.haversineKm(
+            booking.pickup.lat, booking.pickup.lng, dest.lat, dest.lng);
+
+    // Priced tiers from the real `pricing`/`ride_tiers` tables (fallback to
+    // mock while the config loads).
+    final tiers = (data == null || data.tiers.isEmpty)
+        ? MockData.tiers
+        : [
+            for (final t in data.tiers)
+              _toRideTier(
+                  t,
+                  EvcPricing.estimate(
+                      distanceKm: distanceKm,
+                      multiplier: t.multiplier,
+                      p: data.pricing)),
+          ];
+    final selected = tiers.firstWhere((t) => t.id == booking.effectiveTier.id,
+        orElse: () => tiers.first);
+    final route = data == null
+        ? null
+        : EvcPricing.estimate(
+            distanceKm: distanceKm, multiplier: 1, p: data.pricing);
 
     return Scaffold(
       body: Column(
@@ -69,13 +97,13 @@ class RideOptionsScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  _routeSummary(context, booking),
+                  _routeSummary(context, booking, route),
                   const Divider(height: 1),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       children: [
-                        for (final tier in MockData.tiers)
+                        for (final tier in tiers)
                           _TierTile(
                             tier: tier,
                             selected: tier.id == selected.id,
@@ -94,7 +122,8 @@ class RideOptionsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _routeSummary(BuildContext context, BookingState booking) {
+  Widget _routeSummary(
+      BuildContext context, BookingState booking, FareEstimate? route) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
       child: Row(
@@ -123,12 +152,16 @@ class RideOptionsScreen extends ConsumerWidget {
               color: EvcColors.mist,
               borderRadius: BorderRadius.circular(EvcRadius.sm),
             ),
-            child: const Column(
+            child: Column(
               children: [
-                Text('18 min',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-                Text('14.2 km',
-                    style: TextStyle(color: EvcColors.slate, fontSize: 12)),
+                Text(route == null ? '—' : '${route.durationMin} min',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                    route == null
+                        ? ''
+                        : '${route.distanceKm.toStringAsFixed(1)} km',
+                    style:
+                        const TextStyle(color: EvcColors.slate, fontSize: 12)),
               ],
             ),
           ),
@@ -270,6 +303,25 @@ class RideOptionsScreen extends ConsumerWidget {
   }
 }
 
+/// Build the display model the UI/controller use from a DB tier + its estimate.
+RideTier _toRideTier(RideTierConfig t, FareEstimate e) => RideTier(
+      id: t.id,
+      name: t.name,
+      blurb: t.blurb,
+      seats: t.seats,
+      fareAed: e.fare,
+      etaMinutes: e.durationMin,
+      co2SavedKg: e.co2Kg,
+      icon: _tierIcon(t.id),
+    );
+
+IconData _tierIcon(String id) => switch (id) {
+      'comfort' => Icons.airline_seat_recline_extra,
+      'xl' => Icons.airport_shuttle,
+      'premium' => Icons.workspace_premium,
+      _ => Icons.directions_car_filled,
+    };
+
 class _TierTile extends StatelessWidget {
   const _TierTile({
     required this.tier,
@@ -346,7 +398,7 @@ class _TierTile extends StatelessWidget {
                   Text('AED ${tier.fareAed.toStringAsFixed(2)}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
-                  Text('${tier.etaMinutes} min away',
+                  Text('${tier.etaMinutes} min trip',
                       style: const TextStyle(
                           color: EvcColors.slate, fontSize: 12)),
                 ],
