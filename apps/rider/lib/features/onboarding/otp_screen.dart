@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/onboarding_controller.dart';
 import '../../state/rider_account.dart';
 import '../home/home_screen.dart';
@@ -50,7 +51,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         if (mounted) {
           setState(() => _busy = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Incorrect or expired code.')),
+            SnackBar(content: Text(AppStrings.of(context).incorrectCode)),
           );
         }
         return;
@@ -100,13 +101,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Verify your number',
+              Text(AppStrings.of(context).verifyNumber,
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              Text('Enter the 6-digit code we sent to your WhatsApp for $phone.',
+              Text(AppStrings.of(context).otpSentTo(phone),
                   style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 32),
               GestureDetector(
@@ -153,7 +154,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         width: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                    : const Text('Verify & continue'),
+                    : Text(AppStrings.of(context).verifyContinue),
               ),
             ],
           ),

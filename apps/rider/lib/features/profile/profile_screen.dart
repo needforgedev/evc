@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
+import '../../state/locale_provider.dart';
 import '../../state/rider_account.dart';
 import '../../state/rider_history.dart';
 import '../history/history_screen.dart';
@@ -22,18 +24,56 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  void _pickLanguage(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: EvcColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheet) {
+        final current = ref.read(localeProvider).languageCode;
+        Widget option(String code, String label) => ListTile(
+              title: Text(label,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              trailing: current == code
+                  ? const Icon(Icons.check_circle, color: EvcColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(localeProvider.notifier).set(Locale(code));
+                Navigator.of(sheet).pop();
+              },
+            );
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              option('en', 'English'),
+              option('ar', 'العربية'),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = AppStrings.of(context);
     final riderAsync = ref.watch(currentRiderProvider);
     final history = ref.watch(rideHistoryProvider).value ?? const [];
-    final co2 = history.fold<double>(0, (s, t) => s + t.co2SavedKg);
+    final co2 = history.fold<double>(0, (sum, t) => sum + t.co2SavedKg);
+    final langLabel =
+        ref.watch(localeProvider).languageCode == 'ar' ? 'العربية' : 'English';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: Text(tr.account)),
       body: SafeArea(
         child: riderAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Could not load account.\n$e')),
+          error: (e, _) => Center(child: Text('$e')),
           data: (rider) => ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
             children: [
@@ -78,40 +118,42 @@ class ProfileScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _stat('${rider?.totalTrips ?? 0}', 'Trips',
+                    child: _stat('${rider?.totalTrips ?? 0}', tr.tripsLabel,
                         Icons.route_outlined),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _stat('${co2.toStringAsFixed(0)} kg', 'CO₂ saved',
+                    child: _stat('${co2.toStringAsFixed(0)} kg', tr.co2Saved,
                         Icons.eco_rounded,
                         highlight: true),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              _tile(context, Icons.receipt_long_outlined, 'Your trips',
+              _tile(context, Icons.receipt_long_outlined, tr.yourTrips,
                   onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const HistoryScreen()),
+                        MaterialPageRoute(builder: (_) => const HistoryScreen()),
                       )),
-              _tile(context, Icons.credit_card, 'Payment methods'),
-              _tile(context, Icons.bookmark_border, 'Saved places',
+              _tile(context, Icons.credit_card, tr.paymentMethods),
+              _tile(context, Icons.bookmark_border, tr.savedPlaces,
                   onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                             builder: (_) => const SavedPlacesScreen()),
                       )),
-              _tile(context, Icons.shield_outlined, 'Safety'),
-              _tile(context, Icons.card_giftcard, 'Refer & earn'),
-              _tile(context, Icons.help_outline, 'Help'),
-              _tile(context, Icons.settings_outlined, 'Settings'),
+              _tile(context, Icons.language, tr.language,
+                  trailing: langLabel,
+                  onTap: () => _pickLanguage(context, ref)),
+              _tile(context, Icons.shield_outlined, tr.safety),
+              _tile(context, Icons.card_giftcard, tr.referEarn),
+              _tile(context, Icons.help_outline, tr.help),
+              _tile(context, Icons.settings_outlined, tr.settings),
               const SizedBox(height: 12),
               Center(
                 child: TextButton(
                   onPressed: () => _signOut(context, ref),
                   style:
                       TextButton.styleFrom(foregroundColor: EvcColors.danger),
-                  child: const Text('Sign out'),
+                  child: Text(tr.signOut),
                 ),
               ),
             ],
@@ -148,12 +190,19 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _tile(BuildContext context, IconData icon, String label,
-      {VoidCallback? onTap}) {
+      {VoidCallback? onTap, String? trailing}) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: EvcColors.ink),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: const Icon(Icons.chevron_right, color: EvcColors.slate),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (trailing != null)
+            Text(trailing, style: const TextStyle(color: EvcColors.slate)),
+          const Icon(Icons.chevron_right, color: EvcColors.slate),
+        ],
+      ),
       onTap: onTap ?? () {},
     );
   }

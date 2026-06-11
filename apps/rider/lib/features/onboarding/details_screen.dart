@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/onboarding_controller.dart';
 import '../../state/rider_account.dart';
 import '../home/home_screen.dart';
@@ -61,17 +62,17 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("What's your name?",
+              Text(AppStrings.of(context).whatsYourName,
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              const Text('So drivers know who to pick up.',
-                  style: TextStyle(color: EvcColors.slate, fontSize: 15)),
+              Text(AppStrings.of(context).soDriversKnow,
+                  style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 24),
-              const Text('Full name',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(AppStrings.of(context).fullName,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               TextField(
                 controller: _name,
@@ -81,8 +82,8 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
-              const Text('Email (optional)',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(AppStrings.of(context).emailOptional,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               TextField(
                 controller: _email,
@@ -98,7 +99,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         width: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                    : const Text('Continue'),
+                    : Text(AppStrings.of(context).continueLabel),
               ),
             ],
           ),

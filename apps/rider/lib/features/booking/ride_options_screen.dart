@@ -5,6 +5,7 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import 'package:evc_maps/evc_maps.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../mock/mock_data.dart';
 import '../../state/booking_controller.dart';
 import '../../state/pricing_provider.dart';
@@ -136,7 +137,7 @@ class RideOptionsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(booking.destination?.name ?? 'Destination',
+                Text(booking.destination?.name ?? AppStrings.of(context).destination,
                     style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 16)),
                 const SizedBox(height: 2),
@@ -202,8 +203,8 @@ class RideOptionsScreen extends ConsumerWidget {
                       Text(booking.payment.detail,
                           style: const TextStyle(color: EvcColors.slate)),
                       const Spacer(),
-                      const Text('Change',
-                          style: TextStyle(
+                      Text(AppStrings.of(context).change,
+                          style: const TextStyle(
                               color: EvcColors.primaryDark,
                               fontWeight: FontWeight.w700)),
                       const Icon(Icons.keyboard_arrow_down,
@@ -228,8 +229,8 @@ class RideOptionsScreen extends ConsumerWidget {
                           res.discount,
                           res.description);
                     } else if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Invalid or expired promo code.')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(AppStrings.of(context).invalidPromo)));
                     }
                   } catch (_) {
                     if (context.mounted) {
@@ -244,7 +245,8 @@ class RideOptionsScreen extends ConsumerWidget {
               const SizedBox(height: 10),
               FilledButton(
                 onPressed: () => _confirm(context, ref, booking),
-                child: Text(_confirmLabel(selected, booking.promoDiscount)),
+                child: Text(_confirmLabel(
+                    AppStrings.of(context), selected, booking.promoDiscount)),
               ),
             ],
           ),
@@ -286,7 +288,8 @@ class RideOptionsScreen extends ConsumerWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not request ride: $e')));
+          .showSnackBar(SnackBar(
+              content: Text('${AppStrings.of(context).couldNotRequest}: $e')));
     }
   }
 
@@ -303,12 +306,12 @@ class RideOptionsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Payment method',
-                      style: TextStyle(
+                  child: Text(AppStrings.of(context).paymentMethod,
+                      style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.w800)),
                 ),
               ),
@@ -355,9 +358,9 @@ IconData _tierIcon(String id) => switch (id) {
       _ => Icons.directions_car_filled,
     };
 
-String _confirmLabel(RideTier t, double discount) {
+String _confirmLabel(AppStrings tr, RideTier t, double discount) {
   final net = (t.fareAed - discount).clamp(0.0, double.infinity);
-  return 'Confirm ${t.name}  ·  AED ${net.toStringAsFixed(2)}';
+  return tr.confirmFor(t.name, 'AED ${net.toStringAsFixed(2)}');
 }
 
 /// Promo-code entry / applied state shown above the confirm button.
@@ -431,10 +434,10 @@ class _PromoRowState extends State<_PromoRow> {
             child: TextField(
               controller: _controller,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                hintText: 'Promo code',
-                prefixIcon: Icon(Icons.local_offer_outlined),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12),
+              decoration: InputDecoration(
+                hintText: AppStrings.of(context).promoCode,
+                prefixIcon: const Icon(Icons.local_offer_outlined),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
           ),
@@ -450,7 +453,7 @@ class _PromoRowState extends State<_PromoRow> {
                   height: 18,
                   width: 18,
                   child: CircularProgressIndicator(strokeWidth: 2.2))
-              : const Text('Apply'),
+              : Text(AppStrings.of(context).apply),
         ),
       ],
     );
@@ -533,7 +536,7 @@ class _TierTile extends StatelessWidget {
                   Text('AED ${tier.fareAed.toStringAsFixed(2)}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
-                  Text('${tier.etaMinutes} min trip',
+                  Text(AppStrings.of(context).minTrip(tier.etaMinutes),
                       style: const TextStyle(
                           color: EvcColors.slate, fontSize: 12)),
                 ],

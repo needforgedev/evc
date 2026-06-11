@@ -281,3 +281,184 @@ abstract final class AdminActions {
         params: {'p_trip': tripId, 'p_reason': 'Canceled by ops'});
   }
 }
+
+// ───────────────────────── config console ─────────────────────────
+
+class AdminPromo {
+  const AdminPromo({
+    required this.id,
+    required this.code,
+    required this.description,
+    required this.discountType,
+    required this.value,
+    required this.maxDiscount,
+    required this.redemptions,
+    required this.active,
+  });
+  final String id;
+  final String code;
+  final String? description;
+  final String discountType; // 'percent' | 'flat'
+  final double value;
+  final double? maxDiscount;
+  final int redemptions;
+  final bool active;
+}
+
+class AdminSurge {
+  const AdminSurge({
+    required this.id,
+    required this.zone,
+    required this.multiplier,
+    required this.active,
+  });
+  final String id;
+  final String zone;
+  final double multiplier;
+  final bool active;
+}
+
+class AdminTier {
+  const AdminTier({
+    required this.id,
+    required this.name,
+    required this.multiplier,
+    required this.seats,
+    required this.active,
+  });
+  final String id;
+  final String name;
+  final double multiplier;
+  final int seats;
+  final bool active;
+}
+
+class ConfigChange {
+  const ConfigChange({required this.table, required this.action, required this.when});
+  final String table;
+  final String action;
+  final String when;
+}
+
+final adminPricingProvider =
+    FutureProvider<PricingConfig>((ref) async => EvcPricing.fetchPricing());
+
+final adminTiersProvider = FutureProvider<List<AdminTier>>((ref) async {
+  if (!EvcSupabase.isReady) return const [];
+  final rows = await _rows(
+      EvcSupabase.client.from('ride_tiers').select().order('sort_order'));
+  return rows
+      .map((m) => AdminTier(
+            id: m['id'] as String,
+            name: (m['name'] as String?) ?? (m['id'] as String),
+            multiplier: (m['multiplier'] as num?)?.toDouble() ?? 1,
+            seats: (m['seats'] as int?) ?? 4,
+            active: m['active'] == true,
+          ))
+      .toList();
+});
+
+final adminPromosProvider = FutureProvider<List<AdminPromo>>((ref) async {
+  if (!EvcSupabase.isReady) return const [];
+  final rows = await _rows(EvcSupabase.client.from('promo_codes').select().order('code'));
+  return rows
+      .map((m) => AdminPromo(
+            id: m['id'] as String,
+            code: m['code'] as String,
+            description: m['description'] as String?,
+            discountType: (m['discount_type'] as String?) ?? 'percent',
+            value: (m['value'] as num?)?.toDouble() ?? 0,
+            maxDiscount: (m['max_discount'] as num?)?.toDouble(),
+            redemptions: (m['redemptions'] as int?) ?? 0,
+            active: m['active'] == true,
+          ))
+      .toList();
+});
+
+final adminSurgesProvider = FutureProvider<List<AdminSurge>>((ref) async {
+  if (!EvcSupabase.isReady) return const [];
+  final rows = await _rows(EvcSupabase.client
+      .from('surge_rules')
+      .select('id, multiplier, active, zones(name)'));
+  return rows.map((m) {
+    final z = m['zones'];
+    return AdminSurge(
+      id: m['id'] as String,
+      zone: (z is Map ? z['name'] as String? : null) ?? 'Zone',
+      multiplier: (m['multiplier'] as num?)?.toDouble() ?? 1,
+      active: m['active'] == true,
+    );
+  }).toList();
+});
+
+final adminConfigAuditProvider = FutureProvider<List<ConfigChange>>((ref) async {
+  if (!EvcSupabase.isReady) return const [];
+  final rows = await _rows(EvcSupabase.client
+      .from('config_audit')
+      .select('table_name, action, changed_at')
+      .order('changed_at', ascending: false)
+      .limit(15));
+  return rows
+      .map((m) => ConfigChange(
+            table: (m['table_name'] as String?) ?? '',
+            action: (m['action'] as String?) ?? '',
+            when: _dateLabel(m['changed_at']),
+          ))
+      .toList();
+});
+
+abstract final class AdminConfigActions {
+  static Future<void> updatePricing({
+    required double baseFare,
+    required double perKm,
+    required double perMin,
+    required double minFare,
+    required double vatRate,
+  }) async {
+    if (!EvcSupabase.isReady) return;
+    await EvcSupabase.client.from('pricing').update({
+      'base_fare': baseFare,
+      'per_km': perKm,
+      'per_min': perMin,
+      'min_fare': minFare,
+      'vat_rate': vatRate,
+    }).eq('region', 'dubai');
+  }
+
+  static Future<void> updateTier(String id, {double? multiplier, bool? active}) async {
+    if (!EvcSupabase.isReady) return;
+    final data = <String, dynamic>{};
+    if (multiplier != null) data['multiplier'] = multiplier;
+    if (active != null) data['active'] = active;
+    if (data.isEmpty) return;
+    await EvcSupabase.client.from('ride_tiers').update(data).eq('id', id);
+  }
+
+  static Future<void> setPromoActive(String id, bool active) async {
+    if (!EvcSupabase.isReady) return;
+    await EvcSupabase.client.from('promo_codes').update({'active': active}).eq('id', id);
+  }
+
+  static Future<void> createPromo({
+    required String code,
+    String? description,
+    required String discountType,
+    required double value,
+    double? maxDiscount,
+  }) async {
+    if (!EvcSupabase.isReady) return;
+    await EvcSupabase.client.from('promo_codes').insert({
+      'code': code.toUpperCase(),
+      'description': description,
+      'discount_type': discountType,
+      'value': value,
+      'max_discount': maxDiscount,
+      'active': true,
+    });
+  }
+
+  static Future<void> setSurgeActive(String id, bool active) async {
+    if (!EvcSupabase.isReady) return;
+    await EvcSupabase.client.from('surge_rules').update({'active': active}).eq('id', id);
+  }
+}

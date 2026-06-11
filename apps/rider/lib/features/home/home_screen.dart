@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/booking_controller.dart';
 import '../../state/saved_places_provider.dart';
 import '../booking/ride_options_screen.dart';
@@ -64,14 +65,14 @@ class HomeScreen extends ConsumerWidget {
                             offset: Offset(0, 2)),
                       ],
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.eco_rounded,
+                        const Icon(Icons.eco_rounded,
                             color: EvcColors.primaryDark, size: 16),
-                        SizedBox(width: 6),
-                        Text('100% electric',
-                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 6),
+                        Text(AppStrings.of(context).electric,
+                            style: const TextStyle(fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -161,7 +162,7 @@ class _BookingPanel extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Where are you going?',
+                AppStrings.of(context).whereAreYouGoing,
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -180,15 +181,16 @@ class _BookingPanel extends StatelessWidget {
                     borderRadius: BorderRadius.circular(EvcRadius.sm),
                     border: Border.all(color: EvcColors.line),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.search, color: EvcColors.slate),
-                      SizedBox(width: 12),
-                      Text('Where to?',
-                          style:
-                              TextStyle(color: EvcColors.slate, fontSize: 16)),
-                      Spacer(),
-                      Icon(Icons.schedule, color: EvcColors.slate, size: 20),
+                      const Icon(Icons.search, color: EvcColors.slate),
+                      const SizedBox(width: 12),
+                      Text(AppStrings.of(context).whereTo,
+                          style: const TextStyle(
+                              color: EvcColors.slate, fontSize: 16)),
+                      const Spacer(),
+                      const Icon(Icons.schedule,
+                          color: EvcColors.slate, size: 20),
                     ],
                   ),
                 ),
@@ -266,12 +268,13 @@ class _ManageChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(EvcRadius.sm),
           border: Border.all(color: EvcColors.line),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 18, color: EvcColors.ink),
-            SizedBox(width: 6),
-            Text('Saved', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Icon(Icons.add, size: 18, color: EvcColors.ink),
+            const SizedBox(width: 6),
+            Text(AppStrings.of(context).saved,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ],
         ),
       ),

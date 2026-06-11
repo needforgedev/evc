@@ -5,6 +5,7 @@ import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/active_trip_provider.dart';
 import '../../state/assigned_driver_provider.dart';
 import '../../state/booking_controller.dart';
@@ -171,7 +172,9 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(_headline(trip?.status ?? LiveTripStatus.requested),
+              child: Text(
+                  _headline(AppStrings.of(context),
+                      trip?.status ?? LiveTripStatus.requested),
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800)),
             ),
@@ -180,21 +183,25 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
         const SizedBox(height: 6),
         Text(
           trip == null
-              ? 'Creating your trip…'
-              : 'To ${trip.destName}  ·  ${(trip.distanceKm ?? 0).toStringAsFixed(1)} km',
+              ? AppStrings.of(context).creatingTrip
+              : '${AppStrings.of(context).toPlace(trip.destName)}  ·  ${(trip.distanceKm ?? 0).toStringAsFixed(1)} km',
           style: const TextStyle(color: EvcColors.slate),
         ),
         const SizedBox(height: 16),
-        OutlinedButton(onPressed: _cancel, child: const Text('Cancel ride')),
+        OutlinedButton(
+            onPressed: _cancel, child: Text(AppStrings.of(context).cancelRide)),
       ];
 
   List<Widget> _driverPanel(ActiveTrip? trip, LiveTripStatus status) {
     final arrived = status == LiveTripStatus.arrived;
     return [
-      Text(_headline(status),
+      Text(_headline(AppStrings.of(context), status),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 4),
-      Text(arrived ? 'Meet your driver at the pickup point.' : 'On the way to you.',
+      Text(
+          arrived
+              ? AppStrings.of(context).meetAtPickup
+              : AppStrings.of(context).onTheWayToYou,
           style: const TextStyle(color: EvcColors.slate)),
       const SizedBox(height: 14),
       if (trip?.driverId != null)
@@ -213,8 +220,8 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
       Center(
         child: TextButton(
           onPressed: _cancel,
-          child: const Text('Cancel ride',
-              style: TextStyle(color: EvcColors.slate)),
+          child: Text(AppStrings.of(context).cancelRide,
+              style: const TextStyle(color: EvcColors.slate)),
         ),
       ),
     ];
@@ -229,14 +236,16 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              mins != null ? 'On your way · ~$mins min' : 'On your way',
+              mins != null
+                  ? AppStrings.of(context).onYourWayMin(mins)
+                  : AppStrings.of(context).onYourWay,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
           ),
         ],
       ),
       const SizedBox(height: 4),
-      Text('To ${trip?.destName ?? ''}',
+      Text(AppStrings.of(context).toPlace(trip?.destName ?? ''),
           style: const TextStyle(color: EvcColors.slate)),
       const SizedBox(height: 14),
       if (trip?.driverId != null)
@@ -249,11 +258,12 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
 
   List<Widget> _completedPanel(ActiveTrip? trip) => [
         Row(
-          children: const [
-            Icon(Icons.check_circle, color: EvcColors.primary),
-            SizedBox(width: 12),
-            Text('Trip complete',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          children: [
+            const Icon(Icons.check_circle, color: EvcColors.primary),
+            const SizedBox(width: 12),
+            Text(AppStrings.of(context).tripComplete,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800)),
           ],
         ),
         const SizedBox(height: 14),
@@ -265,31 +275,32 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
                 _submitRating(trip!.driverId!, stars, tags, tip),
           )
         else if (_rated)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Text('Thanks for rating your driver ⭐',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text(AppStrings.of(context).thanksRating,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         const SizedBox(height: 12),
         FilledButton(
           onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-          child: const Text('Done'),
+          child: Text(AppStrings.of(context).done),
         ),
       ];
 
   List<Widget> _canceledPanel() => [
         Row(
-          children: const [
-            Icon(Icons.cancel, color: EvcColors.slate),
-            SizedBox(width: 12),
-            Text('Trip canceled',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          children: [
+            const Icon(Icons.cancel, color: EvcColors.slate),
+            const SizedBox(width: 12),
+            Text(AppStrings.of(context).tripCanceled,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800)),
           ],
         ),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-          child: const Text('Done'),
+          child: Text(AppStrings.of(context).done),
         ),
       ];
 
@@ -301,7 +312,7 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
     return OutlinedButton.icon(
       onPressed: phone == null ? null : () => _dial(phone),
       icon: const Icon(Icons.call, size: 18),
-      label: const Text('Call driver'),
+      label: Text(AppStrings.of(context).callDriver),
       style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(48)),
     );
@@ -320,14 +331,14 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
   }
 }
 
-String _headline(LiveTripStatus s) => switch (s) {
-      LiveTripStatus.requested => 'Finding your EV…',
-      LiveTripStatus.matched => 'Driver found — confirming…',
-      LiveTripStatus.enroute => 'Your driver is on the way',
-      LiveTripStatus.arrived => 'Your driver has arrived',
-      LiveTripStatus.ongoing => 'On the way to your destination',
-      LiveTripStatus.completed => "You've arrived",
-      LiveTripStatus.canceled => 'Trip canceled',
+String _headline(AppStrings tr, LiveTripStatus s) => switch (s) {
+      LiveTripStatus.requested => tr.findingEv,
+      LiveTripStatus.matched => tr.driverFound,
+      LiveTripStatus.enroute => tr.driverOnWay,
+      LiveTripStatus.arrived => tr.driverArrived,
+      LiveTripStatus.ongoing => tr.onWayToDest,
+      LiveTripStatus.completed => tr.youveArrived,
+      LiveTripStatus.canceled => tr.tripCanceled,
     };
 
 class _StatusPill extends StatelessWidget {
@@ -347,7 +358,7 @@ class _StatusPill extends StatelessWidget {
         children: [
           const Icon(Icons.bolt, color: EvcColors.primary, size: 18),
           const SizedBox(width: 6),
-          Text(_headline(status),
+          Text(_headline(AppStrings.of(context), status),
               style: const TextStyle(
                   color: Colors.white, fontWeight: FontWeight.w700)),
         ],
@@ -453,7 +464,7 @@ class _DriverCard extends ConsumerWidget {
                 children: [
                   const Icon(Icons.bolt, size: 16, color: EvcColors.primary),
                   const SizedBox(width: 6),
-                  Text('${d.rangeKm} km range · covers your trip',
+                  Text(AppStrings.of(context).coversTrip(d.rangeKm),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -514,6 +525,7 @@ class _Receipt extends ConsumerWidget {
     final amount = pay?.amount ?? trip.fare;
     final subtotal = amount - vat;
     final discount = trip.discount ?? 0;
+    final tr = AppStrings.of(context);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -524,13 +536,13 @@ class _Receipt extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          _row('Subtotal', 'AED ${subtotal.toStringAsFixed(2)}'),
-          _row('VAT (5%)', 'AED ${vat.toStringAsFixed(2)}'),
+          _row(tr.subtotal, 'AED ${subtotal.toStringAsFixed(2)}'),
+          _row(tr.vat, 'AED ${vat.toStringAsFixed(2)}'),
           if (discount > 0)
-            _row('Promo discount', '−AED ${discount.toStringAsFixed(2)}'),
-          if (tip > 0) _row('Tip', 'AED ${tip.toStringAsFixed(2)}'),
+            _row(tr.promoDiscount, '−AED ${discount.toStringAsFixed(2)}'),
+          if (tip > 0) _row(tr.tip, 'AED ${tip.toStringAsFixed(2)}'),
           const Divider(height: 18),
-          _row('Total', 'AED ${total.toStringAsFixed(2)}', bold: true),
+          _row(tr.total, 'AED ${total.toStringAsFixed(2)}', bold: true),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -624,11 +636,12 @@ class _RatingBarState extends State<_RatingBar> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = AppStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Rate your driver',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        Text(tr.rateYourDriver,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
         const SizedBox(height: 8),
         Center(
           child: Row(
@@ -657,14 +670,15 @@ class _RatingBarState extends State<_RatingBar> {
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Add a tip (optional)',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(tr.addTipOptional,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
               for (final amt in _tipOptions)
-                _choice(amt == 0 ? 'No tip' : 'AED $amt', _tip == amt,
+                _choice(amt == 0 ? tr.noTip : 'AED $amt', _tip == amt,
                     () => setState(() => _tip = amt)),
             ],
           ),
@@ -678,7 +692,7 @@ class _RatingBarState extends State<_RatingBar> {
                     width: 20,
                     child: CircularProgressIndicator(
                         strokeWidth: 2.5, color: Colors.white))
-                : Text(_tip > 0 ? 'Submit & tip AED $_tip' : 'Submit rating'),
+                : Text(_tip > 0 ? tr.tipAmount('AED $_tip') : tr.submitRating),
           ),
         ],
       ],

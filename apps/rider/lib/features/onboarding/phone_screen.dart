@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/onboarding_controller.dart';
 import 'otp_screen.dart';
 
@@ -57,16 +58,16 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Enter your mobile number',
+                AppStrings.of(context).enterMobile,
                 style: Theme.of(context)
                     .textTheme
                     .headlineSmall
                     ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
-              const Text(
-                "We'll send you a 6-digit verification code on WhatsApp.",
-                style: TextStyle(color: EvcColors.slate, fontSize: 15),
+              Text(
+                AppStrings.of(context).otpSubtitle,
+                style: const TextStyle(color: EvcColors.slate, fontSize: 15),
               ),
               const SizedBox(height: 28),
               Row(
@@ -111,13 +112,13 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         width: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                    : const Text('Send code'),
+                    : Text(AppStrings.of(context).sendCode),
               ),
               const SizedBox(height: 12),
-              const Text(
-                "By continuing you agree to EVC's Terms & Privacy Policy.",
+              Text(
+                AppStrings.of(context).termsNote,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: EvcColors.slate, fontSize: 12),
+                style: const TextStyle(color: EvcColors.slate, fontSize: 12),
               ),
             ],
           ),
