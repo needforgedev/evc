@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
 import '../../state/onboarding_controller.dart';
 import '../shell/driver_gate.dart';
@@ -101,7 +102,7 @@ class RegistrationCompleteScreen extends ConsumerWidget {
                     (route) => false,
                   );
                 },
-                child: const Text('Upload documents'),
+                child: Text(AppStrings.of(context).uploadDocuments),
               ),
             ],
           ),

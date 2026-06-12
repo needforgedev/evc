@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../mock/mock_data.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_data.dart';
@@ -198,6 +199,7 @@ class _HomePanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = AppStrings.of(context);
     final earnings = ref.watch(driverEarningsProvider);
     final today = earnings.value?.first;
     final online = driver?.isOnline ?? false;
@@ -227,31 +229,31 @@ class _HomePanel extends ConsumerWidget {
             child: Row(
               children: [
                 _miniStat('AED ${(today?.totalAed ?? 0).toStringAsFixed(0)}',
-                    'Earned today'),
+                    tr.earnedToday),
                 _divider(),
-                _miniStat('${today?.trips ?? 0}', 'Trips'),
+                _miniStat('${today?.trips ?? 0}', tr.trips),
                 _divider(),
-                _miniStat(driver?.rating.toStringAsFixed(2) ?? '—', 'Rating'),
+                _miniStat(driver?.rating.toStringAsFixed(2) ?? '—', tr.rating),
               ],
             ),
           ),
           const SizedBox(height: 16),
           if (pending)
-            _pendingBanner()
+            _pendingBanner(tr)
           else if (online)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 14),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
               child: Row(
                 children: [
-                  SizedBox(
+                  const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: EvcColors.primary)),
-                  SizedBox(width: 12),
-                  Text('Looking for trips nearby…',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(width: 12),
+                  Text(tr.lookingForTrips,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15)),
                 ],
               ),
             ),
@@ -267,14 +269,14 @@ class _HomePanel extends ConsumerWidget {
                     width: 22,
                     child: CircularProgressIndicator(
                         strokeWidth: 2.5, color: Colors.white))
-                : Text(online ? 'Go offline' : 'Go online'),
+                : Text(online ? tr.goOffline : tr.goOnline),
           ),
         ],
       ),
     );
   }
 
-  Widget _pendingBanner() {
+  Widget _pendingBanner(AppStrings tr) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
@@ -282,13 +284,14 @@ class _HomePanel extends ConsumerWidget {
         color: EvcColors.warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(EvcRadius.sm),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.hourglass_bottom, color: Color(0xFFB78000)),
-          SizedBox(width: 10),
+          const Icon(Icons.hourglass_bottom, color: Color(0xFFB78000)),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text("Pending approval — you can't go online until ops verify your account.",
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            child: Text(tr.pendingApproval,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         ],
       ),

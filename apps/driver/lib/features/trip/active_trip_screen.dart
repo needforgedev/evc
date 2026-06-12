@@ -6,6 +6,7 @@ import 'package:evc_core/evc_core.dart';
 import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_data.dart';
 import '../../state/driver_job_provider.dart';
@@ -274,8 +275,9 @@ class _OfferCardState extends State<_OfferCard> {
           const SizedBox(height: 14),
           Row(
             children: [
-              const Text('New ride request',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              Text(AppStrings.of(context).newRideRequest,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 18)),
               const Spacer(),
               Text('${_remaining}s',
                   style: const TextStyle(
@@ -287,7 +289,8 @@ class _OfferCardState extends State<_OfferCard> {
           const SizedBox(height: 12),
           _RiderLine(riderId: t.riderId),
           const SizedBox(height: 12),
-          _leg(Icons.my_location, 'Pickup', t.pickupName, EvcColors.primary),
+          _leg(Icons.my_location, AppStrings.of(context).pickUp, t.pickupName,
+              EvcColors.primary),
           const SizedBox(height: 6),
           _leg(Icons.location_on, '${(t.distanceKm ?? 0).toStringAsFixed(1)} km',
               t.destName, EvcColors.ink),
@@ -300,7 +303,9 @@ class _OfferCardState extends State<_OfferCard> {
                 color: EvcColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(EvcRadius.sm),
               ),
-              child: Text('You earn AED ${t.fare.toStringAsFixed(2)}',
+              child: Text(
+                  AppStrings.of(context)
+                      .youEarn('AED ${t.fare.toStringAsFixed(2)}'),
                   style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: EvcColors.primaryDark)),
@@ -312,7 +317,7 @@ class _OfferCardState extends State<_OfferCard> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: widget.busy ? null : widget.onDecline,
-                  child: const Text('Decline'),
+                  child: Text(AppStrings.of(context).decline),
                 ),
               ),
               const SizedBox(width: 12),
@@ -320,7 +325,7 @@ class _OfferCardState extends State<_OfferCard> {
                 flex: 2,
                 child: FilledButton(
                   onPressed: widget.busy ? null : widget.onAccept,
-                  child: const Text('Accept'),
+                  child: Text(AppStrings.of(context).accept),
                 ),
               ),
             ],
@@ -372,14 +377,15 @@ class _DrivePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tr = AppStrings.of(context);
     final (target, label) = trip.status == LiveTripStatus.ongoing
-        ? (trip.destName, 'Drop-off')
-        : (trip.pickupName, 'Pick-up');
+        ? (trip.destName, tr.dropOff)
+        : (trip.pickupName, tr.pickUp);
 
     final (cta, action) = switch (trip.status) {
-      LiveTripStatus.arrived => ('Start trip', onStart),
-      LiveTripStatus.ongoing => ('Complete trip', onComplete),
-      _ => ("I've arrived", onArrived),
+      LiveTripStatus.arrived => (tr.startTrip, onStart),
+      LiveTripStatus.ongoing => (tr.completeTrip, onComplete),
+      _ => (tr.iveArrived, onArrived),
     };
 
     return _Sheet(
@@ -490,18 +496,18 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Center(
-                      child: Text('You earned',
-                          style: TextStyle(color: EvcColors.slate))),
+                  Center(
+                      child: Text(AppStrings.of(context).youEarned,
+                          style: const TextStyle(color: EvcColors.slate))),
                   Center(
                     child: Text('AED ${earned.toStringAsFixed(2)}',
                         style: const TextStyle(
                             fontSize: 38, fontWeight: FontWeight.w800)),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Rate your rider',
+                  Text(AppStrings.of(context).rateYourRider,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -523,7 +529,8 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: FilledButton(onPressed: _done, child: const Text('Done')),
+              child: FilledButton(
+                  onPressed: _done, child: Text(AppStrings.of(context).done)),
             ),
           ],
         ),

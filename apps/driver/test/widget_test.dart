@@ -5,6 +5,7 @@ import 'package:evcdriver/main.dart';
 void main() {
   testWidgets('EVC Driver boots to the branded welcome screen', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: EvcDriverApp()));
+    await tester.pumpAndSettle(); // localization delegates load asynchronously
     expect(find.text('Sign in to drive'), findsOneWidget);
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/admin_data.dart';
 import '../../state/admin_session.dart';
 import '../drivers/drivers_screen.dart';
@@ -27,10 +28,11 @@ class OverviewScreen extends ConsumerWidget {
         trips.where((t) => t.status == AdminTripStatus.completed).toList();
     final revenue =
         completed.fold<double>(0, (s, t) => s + t.fareAed);
+    final tr = AppStrings.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Overview'),
+        title: Text(tr.overview),
         actions: [
           IconButton(
             onPressed: () {
@@ -65,20 +67,20 @@ class OverviewScreen extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  _kpi('$ongoing', 'Active trips', Icons.alt_route,
+                  _kpi('$ongoing', tr.activeTrips, Icons.alt_route,
                       EvcColors.primary),
                   const SizedBox(width: 12),
-                  _kpi('$activeDrivers', 'Active drivers', Icons.local_taxi,
+                  _kpi('$activeDrivers', tr.activeDrivers, Icons.local_taxi,
                       EvcColors.ink),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _kpi('${completed.length}', 'Completed trips',
+                  _kpi('${completed.length}', tr.completedTrips,
                       Icons.check_circle_outline, EvcColors.ink),
                   const SizedBox(width: 12),
-                  _kpi('AED ${revenue.toStringAsFixed(0)}', 'Revenue',
+                  _kpi('AED ${revenue.toStringAsFixed(0)}', tr.revenue,
                       Icons.payments_outlined, EvcColors.primaryDark,
                       highlight: true),
                 ],
@@ -102,7 +104,7 @@ class OverviewScreen extends ConsumerWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            '${pending.length} driver${pending.length == 1 ? '' : 's'} awaiting approval',
+                            tr.awaitingApproval(pending.length),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -112,12 +114,13 @@ class OverviewScreen extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 24),
-              const Text('Network',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(tr.network,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 8),
-              _row(Icons.group_outlined, 'Total drivers', '${drivers.length}'),
-              _row(Icons.route_outlined, 'Total trips', '${trips.length}'),
-              _row(Icons.hourglass_bottom, 'Pending approvals',
+              _row(Icons.group_outlined, tr.totalDrivers, '${drivers.length}'),
+              _row(Icons.route_outlined, tr.totalTrips, '${trips.length}'),
+              _row(Icons.hourglass_bottom, tr.pendingApprovals,
                   '${pending.length}'),
             ],
           ),

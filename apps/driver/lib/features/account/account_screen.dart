@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
+import '../../state/locale_provider.dart';
 import '../documents/documents_screen.dart';
 import '../onboarding/splash_screen.dart';
 
@@ -21,12 +23,50 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
+  void _pickLanguage(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: EvcColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheet) {
+        final current = ref.read(localeProvider).languageCode;
+        Widget option(String code, String label) => ListTile(
+              title: Text(label,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              trailing: current == code
+                  ? const Icon(Icons.check_circle, color: EvcColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(localeProvider.notifier).set(Locale(code));
+                Navigator.of(sheet).pop();
+              },
+            );
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              option('en', 'English'),
+              option('ar', 'العربية'),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = AppStrings.of(context);
     final driverAsync = ref.watch(currentDriverProvider);
+    final langLabel =
+        ref.watch(localeProvider).languageCode == 'ar' ? 'العربية' : 'English';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: Text(tr.account)),
       body: SafeArea(
         top: false,
         child: driverAsync.when(
@@ -74,33 +114,36 @@ class AccountScreen extends ConsumerWidget {
                     const SizedBox(height: 20),
                     Row(
                       children: [
-                        _stat(d.rating.toStringAsFixed(2), 'Rating', Icons.star,
+                        _stat(d.rating.toStringAsFixed(2), tr.rating, Icons.star,
                             highlight: true),
                         const SizedBox(width: 12),
-                        _stat('${d.totalTrips}', 'Trips', Icons.route_outlined),
+                        _stat('${d.totalTrips}', tr.trips, Icons.route_outlined),
                         const SizedBox(width: 12),
                         _stat('${d.acceptanceRate.toStringAsFixed(0)}%',
-                            'Acceptance', Icons.task_alt),
+                            tr.acceptance, Icons.task_alt),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    _tile(Icons.directions_car_outlined, 'My vehicle'),
-                    _tile(Icons.badge_outlined, 'Documents & compliance',
+                    _tile(Icons.directions_car_outlined, tr.myVehicle),
+                    _tile(Icons.badge_outlined, tr.documentsCompliance,
                         onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                   builder: (_) => const DocumentsScreen()),
                             )),
-                    _tile(Icons.account_balance_outlined, 'Payouts & bank'),
-                    _tile(Icons.receipt_long_outlined, 'Tax summary'),
-                    _tile(Icons.help_outline, 'Support & disputes'),
-                    _tile(Icons.settings_outlined, 'Settings'),
+                    _tile(Icons.account_balance_outlined, tr.payoutsBank),
+                    _tile(Icons.receipt_long_outlined, tr.taxSummary),
+                    _tile(Icons.language, tr.language,
+                        trailing: langLabel,
+                        onTap: () => _pickLanguage(context, ref)),
+                    _tile(Icons.help_outline, tr.supportDisputes),
+                    _tile(Icons.settings_outlined, tr.settings),
                     const SizedBox(height: 12),
                     Center(
                       child: TextButton(
                         onPressed: () => _signOut(context, ref),
                         style: TextButton.styleFrom(
                             foregroundColor: EvcColors.danger),
-                        child: const Text('Sign out'),
+                        child: Text(tr.signOut),
                       ),
                     ),
                   ],
@@ -141,12 +184,20 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
-  Widget _tile(IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _tile(IconData icon, String label,
+      {VoidCallback? onTap, String? trailing}) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: EvcColors.ink),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: const Icon(Icons.chevron_right, color: EvcColors.slate),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (trailing != null)
+            Text(trailing, style: const TextStyle(color: EvcColors.slate)),
+          const Icon(Icons.chevron_right, color: EvcColors.slate),
+        ],
+      ),
       onTap: onTap ?? () {},
     );
   }
@@ -158,10 +209,11 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tr = AppStrings.of(context);
     final (label, color) = switch (status) {
-      DriverAccountStatus.pending => ('Pending', EvcColors.warning),
-      DriverAccountStatus.active => ('Active', EvcColors.primaryDark),
-      DriverAccountStatus.suspended => ('Suspended', EvcColors.danger),
+      DriverAccountStatus.pending => (tr.statusPending, EvcColors.warning),
+      DriverAccountStatus.active => (tr.statusActive, EvcColors.primaryDark),
+      DriverAccountStatus.suspended => (tr.statusSuspended, EvcColors.danger),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/onboarding_controller.dart';
 import 'otp_screen.dart';
 
@@ -56,14 +57,14 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Driver sign in',
+              Text(AppStrings.of(context).driverSignIn,
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              const Text('Enter your mobile number — we\'ll send a code to verify it.',
-                  style: TextStyle(color: EvcColors.slate, fontSize: 15)),
+              Text(AppStrings.of(context).enterMobileVerify,
+                  style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 28),
               Row(
                 children: [
@@ -107,7 +108,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         width: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                    : const Text('Send code'),
+                    : Text(AppStrings.of(context).sendCode),
               ),
             ],
           ),

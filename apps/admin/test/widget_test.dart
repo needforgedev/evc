@@ -5,6 +5,7 @@ import 'package:evcadmin/main.dart';
 void main() {
   testWidgets('EVC Admin boots to the sign-in screen', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: EvcAdminApp()));
+    await tester.pumpAndSettle(); // localization delegates load asynchronously
     expect(find.text('EVC Admin'), findsOneWidget);
     expect(find.text('Sign in'), findsOneWidget);
   });

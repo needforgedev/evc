@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../drivers/drivers_screen.dart';
 import '../live/live_map_screen.dart';
 import '../more/more_screen.dart';
@@ -28,6 +29,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = AppStrings.of(context);
     return Scaffold(
       body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: NavigationBar(
@@ -35,27 +37,27 @@ class _MainShellState extends State<MainShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         backgroundColor: EvcColors.surface,
         indicatorColor: EvcColors.primary.withValues(alpha: 0.16),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Overview'),
+              icon: const Icon(Icons.dashboard_outlined),
+              selectedIcon: const Icon(Icons.dashboard),
+              label: tr.overview),
           NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map),
-              label: 'Live'),
+              icon: const Icon(Icons.map_outlined),
+              selectedIcon: const Icon(Icons.map),
+              label: tr.live),
           NavigationDestination(
-              icon: Icon(Icons.badge_outlined),
-              selectedIcon: Icon(Icons.badge),
-              label: 'Drivers'),
+              icon: const Icon(Icons.badge_outlined),
+              selectedIcon: const Icon(Icons.badge),
+              label: tr.drivers),
           NavigationDestination(
-              icon: Icon(Icons.alt_route_outlined),
-              selectedIcon: Icon(Icons.alt_route),
-              label: 'Trips'),
+              icon: const Icon(Icons.alt_route_outlined),
+              selectedIcon: const Icon(Icons.alt_route),
+              label: tr.trips),
           NavigationDestination(
-              icon: Icon(Icons.grid_view_outlined),
-              selectedIcon: Icon(Icons.grid_view),
-              label: 'More'),
+              icon: const Icon(Icons.grid_view_outlined),
+              selectedIcon: const Icon(Icons.grid_view),
+              label: tr.more),
         ],
       ),
     );

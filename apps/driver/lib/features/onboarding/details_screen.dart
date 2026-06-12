@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
 import '../../state/onboarding_controller.dart';
 import 'registration_complete_screen.dart';
@@ -69,8 +70,9 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Your details')),
+      appBar: AppBar(title: Text(tr.yourDetails)),
       body: SafeArea(
         child: Column(
           children: [
@@ -78,46 +80,46 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                 children: [
-                  _label('Full name'),
+                  _label(tr.fullName),
                   TextField(
                     controller: _name,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(hintText: 'Omar Al Farsi'),
                     onChanged: (_) => setState(() {}),
                   ),
-                  _label('Email (optional)'),
+                  _label(tr.emailOptional),
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(hintText: 'you@email.com'),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Your EV',
-                      style: TextStyle(
+                  Text(tr.yourEv,
+                      style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
-                  _label('Model'),
+                  _label(tr.model),
                   TextField(
                     controller: _model,
                     decoration:
                         const InputDecoration(hintText: 'Tesla Model 3'),
                     onChanged: (_) => setState(() {}),
                   ),
-                  _label('Plate'),
+                  _label(tr.plate),
                   TextField(
                     controller: _plate,
                     textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(hintText: 'K 48213'),
                     onChanged: (_) => setState(() {}),
                   ),
-                  _label('Ownership'),
+                  _label(tr.ownership),
                   SegmentedButton<OwnershipType>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                           value: OwnershipType.driver,
-                          label: Text('Driver-owned')),
+                          label: Text(tr.driverOwned)),
                       ButtonSegment(
                           value: OwnershipType.company,
-                          label: Text('Company')),
+                          label: Text(tr.company)),
                     ],
                     selected: {_ownership},
                     showSelectedIcon: false,
@@ -130,7 +132,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('Battery %'),
+                            _label(tr.batteryPct),
                             TextField(
                               controller: _battery,
                               keyboardType: TextInputType.number,
@@ -146,7 +148,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('Range (km)'),
+                            _label(tr.rangeKm),
                             TextField(
                               controller: _range,
                               keyboardType: TextInputType.number,
@@ -159,7 +161,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                       ),
                     ],
                   ),
-                  _label('Service tier'),
+                  _label(tr.serviceTier),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -194,7 +196,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
                         width: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                    : const Text('Continue'),
+                    : Text(tr.continueLabel),
               ),
             ),
           ],

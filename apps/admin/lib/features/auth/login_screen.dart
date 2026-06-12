@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../state/admin_session.dart';
 import '../shell/main_shell.dart';
 
@@ -76,11 +77,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       .textTheme
                       .headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w800)),
-              const Text('Operations control panel',
-                  style: TextStyle(color: EvcColors.slate, fontSize: 15)),
+              Text(AppStrings.of(context).opsControlPanel,
+                  style: const TextStyle(color: EvcColors.slate, fontSize: 15)),
               const SizedBox(height: 32),
-              const Text('Work email',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(AppStrings.of(context).workEmail,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               TextField(
                 controller: _email,
@@ -91,8 +92,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     hintText: 'you@evc.ae'),
               ),
               const SizedBox(height: 16),
-              const Text('Password',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(AppStrings.of(context).password,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               TextField(
                 controller: _password,
@@ -110,12 +111,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         width: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                    : const Text('Sign in'),
+                    : Text(AppStrings.of(context).signIn),
               ),
               const SizedBox(height: 12),
-              const Center(
-                child: Text('Super-admin · Ops · Finance · Support',
-                    style: TextStyle(color: EvcColors.slate, fontSize: 12)),
+              Center(
+                child: Text(AppStrings.of(context).rolesLine,
+                    style: const TextStyle(color: EvcColors.slate, fontSize: 12)),
               ),
             ],
           ),

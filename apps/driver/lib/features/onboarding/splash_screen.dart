@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
+import '../../l10n/app_strings.dart';
 import 'phone_screen.dart';
 
 /// Driver welcome screen — entry point of the Driver mock.
@@ -64,7 +65,7 @@ class SplashScreen extends StatelessWidget {
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const PhoneScreen()),
                   ),
-                  child: const Text('Sign in to drive'),
+                  child: Text(AppStrings.of(context).signInToDrive),
                 ),
               ],
             ),
