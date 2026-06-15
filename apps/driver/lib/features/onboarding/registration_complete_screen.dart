@@ -5,6 +5,7 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
+import '../../state/driver_documents.dart';
 import '../../state/onboarding_controller.dart';
 import '../shell/driver_gate.dart';
 
@@ -97,6 +98,8 @@ class RegistrationCompleteScreen extends ConsumerWidget {
                 onPressed: () {
                   ref.read(onboardingControllerProvider.notifier).reset();
                   ref.invalidate(currentDriverProvider);
+                  ref.invalidate(driverDocumentsProvider);
+                  ref.invalidate(driverComplianceProvider);
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (_) => const DriverGate()),
                     (route) => false,

@@ -282,6 +282,71 @@ abstract final class AdminActions {
   }
 }
 
+// ───────────────────────── compliance ─────────────────────────
+
+const _docLabels = {
+  'license': 'Driving license',
+  'rta_permit': 'RTA driver permit',
+  'emirates_id': 'Emirates ID',
+  'vehicle_registration': 'Vehicle registration',
+  'insurance': 'Insurance',
+};
+
+class ComplianceRow {
+  const ComplianceRow({
+    required this.driverId,
+    required this.driverName,
+    required this.docType,
+    required this.expiresAt,
+    required this.daysBucket,
+  });
+  final String driverId;
+  final String driverName;
+  final String docType;
+  final DateTime expiresAt;
+  final int daysBucket; // 60 / 30 / 14 / 7 / 0 (expired)
+
+  String get docLabel => _docLabels[docType] ?? docType;
+  bool get isExpired => daysBucket == 0;
+}
+
+/// Drivers with documents expiring soon or expired — most urgent first
+/// (one row per driver+doc, the tightest threshold that has fired).
+final adminComplianceProvider = FutureProvider<List<ComplianceRow>>((ref) async {
+  if (!EvcSupabase.isReady) return const [];
+  final client = EvcSupabase.client;
+  final alerts = await _rows(client
+      .from('compliance_alerts')
+      .select('driver_id, doc_type, expires_at, days_bucket')
+      .eq('resolved', false)
+      .order('days_bucket'));
+  if (alerts.isEmpty) return const [];
+
+  final ids = alerts.map((a) => a['driver_id'] as String).toSet().toList();
+  final profs = await _rows(
+      client.from('profiles').select('id, full_name').inFilter('id', ids));
+  final names = {
+    for (final p in profs)
+      p['id'] as String: (p['full_name'] as String?) ?? 'Driver'
+  };
+
+  final seen = <String>{};
+  final out = <ComplianceRow>[];
+  for (final a in alerts) {
+    final key = '${a['driver_id']}-${a['doc_type']}';
+    if (!seen.add(key)) continue; // ordered by bucket asc → most urgent kept
+    out.add(ComplianceRow(
+      driverId: a['driver_id'] as String,
+      driverName: names[a['driver_id']] ?? 'Driver',
+      docType: a['doc_type'] as String,
+      expiresAt:
+          DateTime.tryParse(a['expires_at'] as String? ?? '') ?? DateTime.now(),
+      daysBucket: (a['days_bucket'] as int?) ?? 0,
+    ));
+  }
+  return out;
+});
+
 // ───────────────────────── config console ─────────────────────────
 
 class AdminPromo {

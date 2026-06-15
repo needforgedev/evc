@@ -62,6 +62,17 @@ class AppStrings {
   String get done => _t('done');
   String youEarn(String amt) => isAr ? 'ستربح $amt' : 'You earn $amt';
 
+  // ── compliance ──
+  String get docExpiring => _t('docExpiring');
+  String get renew => _t('renew');
+  String get dismiss => _t('dismiss');
+  String docExpiresIn(String label, int days) => isAr
+      ? 'تنتهي صلاحية "$label" خلال $days يومًا — جدّدها وأعد رفعها.'
+      : 'Your "$label" expires in $days days — renew & re-upload.';
+  String docExpired(String label) => isAr
+      ? 'انتهت صلاحية "$label" — جدّدها وأعد رفعها للعودة إلى العمل.'
+      : 'Your "$label" has expired — renew & re-upload to go back online.';
+
   // ── account ──
   String get account => _t('account');
   String get acceptance => _t('acceptance');
@@ -119,6 +130,9 @@ class AppStrings {
     'youEarned': 'You earned',
     'rateYourRider': 'Rate your rider',
     'done': 'Done',
+    'docExpiring': 'Document expiring',
+    'renew': 'Renew',
+    'dismiss': 'Dismiss',
     'account': 'Account',
     'acceptance': 'Acceptance',
     'myVehicle': 'My vehicle',
@@ -175,6 +189,9 @@ class AppStrings {
     'youEarned': 'لقد ربحت',
     'rateYourRider': 'قيّم الراكب',
     'done': 'تم',
+    'docExpiring': 'مستند على وشك الانتهاء',
+    'renew': 'تجديد',
+    'dismiss': 'تجاهل',
     'account': 'الحساب',
     'acceptance': 'القبول',
     'myVehicle': 'مركبتي',

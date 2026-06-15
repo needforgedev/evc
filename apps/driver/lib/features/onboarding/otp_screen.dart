@@ -6,6 +6,7 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
+import '../../state/driver_documents.dart';
 import '../../state/onboarding_controller.dart';
 import '../shell/driver_gate.dart';
 import 'details_screen.dart';
@@ -70,6 +71,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       final registered = details?['current_vehicle_id'] != null;
 
       ref.invalidate(currentDriverProvider);
+      ref.invalidate(driverDocumentsProvider);
+      ref.invalidate(driverComplianceProvider);
       if (!mounted) return;
       if (registered) {
         Navigator.of(context).pushAndRemoveUntil(

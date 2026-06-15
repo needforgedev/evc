@@ -45,11 +45,13 @@ abstract final class DriverRegistration {
 
     final client = EvcSupabase.client;
     try {
-      await client.from('profiles').update({
-        'full_name': d.fullName,
-        'phone': d.phone,
-        if (d.email != null && d.email!.isNotEmpty) 'email': d.email,
-      }).eq('id', uid);
+      // Create-or-update the profile (+ driver_details/wallet) server-side, so
+      // re-registration after a data wipe doesn't fail the vehicle FK.
+      await client.rpc('ensure_driver_profile', params: {
+        'p_full_name': d.fullName,
+        'p_phone': d.phone,
+        'p_email': d.email,
+      });
 
       final ownerLabel =
           d.ownership == OwnershipType.company ? 'Company-owned' : 'Driver-owned';

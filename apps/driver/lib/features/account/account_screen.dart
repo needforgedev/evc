@@ -5,6 +5,7 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
+import '../../state/driver_documents.dart';
 import '../../state/locale_provider.dart';
 import '../documents/documents_screen.dart';
 import '../onboarding/splash_screen.dart';
@@ -16,6 +17,8 @@ class AccountScreen extends ConsumerWidget {
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     await DriverActions.signOut();
     ref.invalidate(currentDriverProvider);
+    ref.invalidate(driverDocumentsProvider);
+    ref.invalidate(driverComplianceProvider);
     if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const SplashScreen()),

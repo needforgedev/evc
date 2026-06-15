@@ -7,6 +7,7 @@ import '../../state/admin_session.dart';
 import '../../state/locale_provider.dart';
 import '../analytics/analytics_screen.dart';
 import '../auth/login_screen.dart';
+import '../compliance/compliance_screen.dart';
 import '../finance/finance_screen.dart';
 import '../fleet/fleet_screen.dart';
 import '../pricing/pricing_screen.dart';
@@ -72,6 +73,8 @@ class MoreScreen extends ConsumerWidget {
           const PricingScreen()),
       (Icons.account_balance_outlined, tr.finance, tr.financeSub,
           const FinanceScreen()),
+      (Icons.verified_user_outlined, tr.compliance, tr.complianceSub,
+          const ComplianceScreen()),
       (Icons.support_agent, tr.supportDisputes, tr.supportSub,
           const SupportScreen()),
       (Icons.insights, tr.analytics, tr.analyticsSub, const AnalyticsScreen()),

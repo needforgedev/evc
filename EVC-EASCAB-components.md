@@ -42,17 +42,18 @@
 | 16 | Config Wizard | ⬜ | — | guided <30-min regional setup |
 | 17 | Feature Builder | ⬜ | — | the capstone (assemble features by config) |
 | 18 | Update Intelligence | ⬜ | — | Renovate + AI risk scoring |
-| 19 | Language Engine | ⬜ | — | i18n, **Arabic + RTL** |
+| 19 | Language Engine | 🟡 | **EN/AR toggle + full RTL** across Rider/Driver/Admin; core flows translated (persisted per-device) | secondary screens still English; **DB-stored / admin-editable** strings |
 
 ---
 
 ## Tally
 
 - ✅ **Done: 1** — #7 Marketplace (the ride match / dispatch engine, fully working).
-- 🟡 **Partial: 10** — #1 Auth, #2 Audit, #3 Regional Config, #4 Notification, #6 Payments,
-  #8 Asset Pool, #9 Human Pool, #11 Financial Tx, #12 Report, #13 Mathematics Room, #15 Compliance.
-- ⬜ **Not started: 9** — #0 Registry, #5 API Puzzle, #10 Contract, #14 AI, #16 Config Wizard,
-  #17 Feature Builder, #18 Update Intelligence, #19 Language *(and #0 is infra-only)*.
+- 🟡 **Partial: 11** — #1 Auth, #2 Audit, #3 Regional Config, #4 Notification, #6 Payments,
+  #8 Asset Pool, #9 Human Pool, #11 Financial Tx, #12 Report, #13 Mathematics Room, #15 Compliance,
+  **#19 Language (EN/AR + RTL, all 3 apps)**.
+- ⬜ **Not started: 8** — #0 Registry, #5 API Puzzle, #10 Contract, #14 AI, #16 Config Wizard,
+  #17 Feature Builder, #18 Update Intelligence *(and #0 is infra-only)*.
 
 ---
 
@@ -69,7 +70,7 @@ Mapped against the PRD's requirement areas:
 | PRD area (req IDs) | EVC | Built in EVC | Missing vs PRD |
 |---|:--:|---|---|
 | **Actors & roles** (§2) | 🟡 | rider / driver / admin (generic) | Customer **T1/T2** (wallet KYC tiers); **OTR / Pinc / O&O / PRO / Lessee** captain pools; HQ/ops pools; Regional Admin |
-| **Rides — lifecycle** (RID-01…06) | 🟡 | request + **upfront estimate** + tracking + **mutual rating** + itemised receipt + history; audited via `trip_events` | multi-stop; **SOS / trip-share / route-deviation**; captain **photo**; **Arabic** receipt; cancellation **fees** |
+| **Rides — lifecycle** (RID-01…06) | 🟡 | request + **upfront estimate** + tracking + **mutual rating** + itemised receipt (**AR/EN**) + history; audited via `trip_events` | multi-stop; **SOS / trip-share / route-deviation**; captain **photo**; cancellation **fees** |
 | **Rides — matching/dispatch** (MAT-01…05) | 🟡 | single-pool nearest + **range- + tier-aware** dispatch | OTR/O&O auto-**split**; **PRO priority + heatmap**; **Pinc** female pool; **destination-triggered premium**; doc-expiry eligibility filter |
 | **Rides — fare engine** (FAR-01…03) | 🟡 | `(base + km + min) × tier-mult`, VAT, **promo discount**, min-fare | **distance-band multiplier** (2.5/2.0/1.5×); **RATE 1 / RATE 2** formulas; **5% global royalty**; **versioned/replayable** formulas; waiting-time |
 | **OTR operations** (OTR-01…06) | ⬜ | — | 50-vehicle lease pool; **6-h shifts**; handover inspection; **USD-24/day** algorithm; break-even monitoring |
@@ -79,7 +80,7 @@ Mapped against the PRD's requirement areas:
 | **Payments & money** (PAY-01…06) | 🟡 | `payments` recorded (amount / VAT / tip / **discount**), method selector | **FAKKA** capture; payouts/disbursements; refunds/chargebacks; e-invoicing (ETA); **P2P wallet** (CBE-gated) |
 | **KYC & compliance** (KYC-01…04) | 🟡 | driver doc upload + **manual admin approval** (audited) | tiered levels (none / soft / **hard-dual** / asset-guarantee); FAKKA financial KYC; **PDPL** residency; Pinc gender data |
 | **Admin Console** (ADM-01…10) | 🟡 | approval queue + **doc review**; live map; trips; support; KPIs; **config console — edit rates / tiers / promos / surge, versioned + audited (`config_audit`)** | config **four-eyes + Global floors/ceilings**; **payout approvals**; station mgmt; sales pipeline; **audit viewer**; fraud workflows — *form factor: EVC admin is **native mobile**, PRD wants **web/PWA*** |
-| **Cross-cutting** (XCT-01…07) | 🟡 | phone+OTP + JWT sessions, trip audit, support tickets | **Arabic + RTL**; push / in-app / **SMS** + SOS priority; **TOTP (admin)** + device binding; offline resilience; accessibility; Egypt data residency |
+| **Cross-cutting** (XCT-01…07) | 🟡 | phone+OTP + JWT sessions; trip audit; support tickets; **Arabic + RTL (EN/AR toggle, all 3 apps)** | push / in-app / **SMS** + SOS priority; **TOTP (admin)** + device binding; offline resilience; accessibility; Egypt data residency |
 
 **Module rollup**
 - 🟡 **Partially built:** Rides · Charging *(discovery only)* · O&O *(ownership only)* · Payments
@@ -105,12 +106,13 @@ Every EVC change is tracked here against the PRD requirement it serves
 |---|---|---|
 | Real WhatsApp OTP + reinstall recovery | XCT-04 | ✅ aligned *(device-binding / TOTP still missing)* |
 | Live tracking — driver card + dot + PIN + Call | RID-03 | ⚠️ partial — plate/rating/vehicle ✅; captain **photo** ❌; ETA = estimate; dot = placeholder until real map |
-| Itemised VAT receipt | RID-05 | ⚠️ **English only** — PRD wants **AR/EN** |
+| Itemised VAT receipt | RID-05 | ✅ now **AR/EN** (rider receipt translated) |
 | Ratings — stars + tags + tip | RID-05 | ✅ aligned (mutual rating; tip = gratuity) |
 | Upfront fare estimate | RID-02 | 🔵 estimate-policy **[OPEN Q-B6]** — EVC chose *locked ≈ final*; needs confirm |
 | Promo-code discounts | FAR / CHG-05 (discount) | ⚠️ inline, **not** a versioned Math-Room formula (FAR-02); promo codes aren't an explicit PRD fare req |
 | Driver **tier** + tier-aware dispatch | MAT / FAR | ⚠️ **DIVERGES** — EVC go/comfort/xl/premium ≠ PRD **RATE 1/2 + OTR/O&O/Pinc/PRO**; reconcile (region-specific?) |
 | Admin **config console** + `config_audit` | ADM-03 · #2 Audit | ⚠️ versioned + audited ✅; **four-eyes + Global floors/ceilings** ❌ |
+| **Arabic + RTL** — all 3 apps (EN/AR toggle, full RTL, core flows) | **XCT-03 (#19)** · RID-05 | ✅ core done *(secondary screens English; DB-editable strings = follow-up)* |
 | Saved places | — | ➕ EVC UX extra (not a PRD req) |
 
 > **Decisions needed to fully sync** (PRD author = Junaid):
@@ -119,7 +121,8 @@ Every EVC change is tracked here against the PRD requirement it serves
 > - **Q-B6:** upfront fare = **locked** (EVC today) or metered-final?
 > - **Q-A7:** VAT treatment (EVC = 5% UAE; Egypt TBD).
 > - **ADM-03:** add **four-eyes approval + Global floors/ceilings** to the config console?
-> - **RID-05 / XCT-03:** Arabic receipt + **RTL** (the localization milestone).
+> - ~~RID-05 / XCT-03: Arabic receipt + RTL~~ → **✅ done** (EN/AR + RTL across all 3 apps; secondary
+>   screens + DB-editable strings are the remaining follow-up).
 
 ---
 
@@ -172,8 +175,9 @@ EVC has effectively built **the ride-hailing spine** of EASCAB:
 **Recently advanced** (this iteration): **Mathematics Room (#13)** gained real promo-discount math ·
 **Marketplace (#7)** gained tier-aware dispatch · **Human/Asset Pool (#8/#9)** gained the driver
 service tier · **Regional Config (#3) + Audit (#2)** gained the **admin config console**
-(editable rates/tiers/promos/surge with a `config_audit` trail). *(See the PRD sync log above for
-how each maps to PRD requirement IDs.)*
+(editable rates/tiers/promos/surge with a `config_audit` trail) · **Language Engine (#19)** went
+from ⬜ → 🟡 with **EN/AR + full RTL across Rider, Driver and Admin**. *(See the PRD sync log above
+for how each maps to PRD requirement IDs.)*
 
 > Caveat: EVC is the **ride-hailing slice**, so naturally the ride components score highest. The
 > EASCAB-grade versions (versioned formula library, universal templates, multi-region config,

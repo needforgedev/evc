@@ -172,7 +172,7 @@ These shape everything downstream — record the final call and date.
 
 ## Phase 5 — Scale & Polish
 
-**Status:** Not started · **Goal:** Production-grade growth, monetization, and localization.
+**Status:** Started ⏳ — **Arabic + RTL live on all 3 apps** (5.4); promo codes + multiple tiers + surge tables wired via the admin config console (5.1). · **Goal:** Production-grade growth, monetization, and localization.
 
 ### 5.1 Pricing & growth
 - [ ] Surge pricing by zone/time
@@ -194,7 +194,7 @@ These shape everything downstream — record the final call and date.
 - [ ] Ratings moderation
 
 ### 5.4 Localization & analytics
-- [ ] Arabic + full RTL support
+- [~] Arabic + full RTL support — **EN/AR toggle + full RTL live on Rider, Driver & Admin** (persisted per-device; core flows translated). *Pending: secondary screens still English; DB-stored / admin-editable strings (full Language Engine).*
 - [ ] Demand/supply analytics + charging utilization (admin)
 - [ ] Retention/cohort dashboards
 

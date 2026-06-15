@@ -50,6 +50,13 @@ class AppStrings {
   String get language => _t('language');
   String get signOut => _t('signOut');
 
+  // ── compliance ──
+  String get compliance => _t('compliance');
+  String get complianceSub => _t('complianceSub');
+  String get noExpiring => _t('noExpiring');
+  String get expired => _t('expired');
+  String expiresInDays(int n) => isAr ? 'خلال $n يومًا' : 'in $n days';
+
   // ── login ──
   String get opsControlPanel => _t('opsControlPanel');
   String get workEmail => _t('workEmail');
@@ -87,6 +94,10 @@ class AppStrings {
     'settingsSub': 'Regions, currency, VAT',
     'language': 'Language',
     'signOut': 'Sign out',
+    'compliance': 'Compliance',
+    'complianceSub': 'Document expiry & renewals',
+    'noExpiring': 'No documents expiring soon.',
+    'expired': 'Expired',
     'opsControlPanel': 'Operations control panel',
     'workEmail': 'Work email',
     'password': 'Password',
@@ -124,6 +135,10 @@ class AppStrings {
     'settingsSub': 'المناطق، العملة، الضريبة',
     'language': 'اللغة',
     'signOut': 'تسجيل الخروج',
+    'compliance': 'الامتثال',
+    'complianceSub': 'انتهاء صلاحية المستندات والتجديدات',
+    'noExpiring': 'لا توجد مستندات على وشك الانتهاء.',
+    'expired': 'منتهية',
     'opsControlPanel': 'لوحة التحكم بالعمليات',
     'workEmail': 'البريد الإلكتروني للعمل',
     'password': 'كلمة المرور',

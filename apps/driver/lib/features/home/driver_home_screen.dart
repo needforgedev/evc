@@ -7,7 +7,9 @@ import '../../l10n/app_strings.dart';
 import '../../mock/mock_data.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_data.dart';
+import '../../state/driver_documents.dart';
 import '../../state/driver_job_provider.dart';
+import '../documents/documents_screen.dart';
 import '../trip/active_trip_screen.dart';
 
 /// Driver home — map, real status/battery, and the online control (gated on
@@ -22,6 +24,7 @@ class DriverHomeScreen extends ConsumerStatefulWidget {
 class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   bool _busy = false;
   bool _jobOpen = false;
+  bool _promptShown = false;
 
   Future<void> _toggleOnline(DriverAccount d) async {
     setState(() => _busy = true);
@@ -30,16 +33,63 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
       ref.invalidate(currentDriverProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not update status: $e')));
+        final blocked = e.toString().contains('compliance_blocked');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(blocked
+              ? 'A required document has expired — renew to go online.'
+              : 'Could not update status: $e'),
+          action: blocked
+              ? SnackBarAction(
+                  label: AppStrings.of(context).renew,
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const DocumentsScreen())))
+              : null,
+        ));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  Future<void> _showCompliancePrompt(ComplianceAlert a) async {
+    final tr = AppStrings.of(context);
+    final days = a.expiresAt.difference(DateTime.now()).inDays;
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(tr.docExpiring),
+        content: Text(a.isExpired
+            ? tr.docExpired(a.label)
+            : tr.docExpiresIn(a.label, days < 0 ? 0 : days)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dctx).pop(),
+              child: Text(tr.dismiss)),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dctx).pop();
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const DocumentsScreen()));
+            },
+            child: Text(tr.renew),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Prompt the driver about an expiring/expired document on app open.
+    ref.listen(driverComplianceProvider, (prev, next) {
+      final alerts = next.value ?? const <ComplianceAlert>[];
+      if (alerts.isNotEmpty && !_promptShown) {
+        _promptShown = true;
+        WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _showCompliancePrompt(alerts.first));
+      }
+    });
+
     // Present an incoming/active job full-screen (offer → drive → complete).
     ref.listen(driverJobProvider, (prev, next) {
       if (next.value != null && !_jobOpen) {
@@ -204,6 +254,7 @@ class _HomePanel extends ConsumerWidget {
     final today = earnings.value?.first;
     final online = driver?.isOnline ?? false;
     final pending = driver != null && !driver!.isActive;
+    final alerts = ref.watch(driverComplianceProvider).value ?? const [];
 
     return _PanelShell(
       child: Column(
@@ -238,6 +289,7 @@ class _HomePanel extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
+          if (alerts.isNotEmpty) _complianceBanner(context, tr, alerts.first),
           if (pending)
             _pendingBanner(tr)
           else if (online)
@@ -292,6 +344,40 @@ class _HomePanel extends ConsumerWidget {
             child: Text(tr.pendingApproval,
                 style: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _complianceBanner(
+      BuildContext context, AppStrings tr, ComplianceAlert a) {
+    final days = a.expiresAt.difference(DateTime.now()).inDays;
+    final color = a.isExpired ? EvcColors.danger : const Color(0xFFB78000);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(EvcRadius.sm),
+      ),
+      child: Row(
+        children: [
+          Icon(a.isExpired ? Icons.error_outline : Icons.schedule,
+              color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              a.isExpired
+                  ? tr.docExpired(a.label)
+                  : tr.docExpiresIn(a.label, days < 0 ? 0 : days),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DocumentsScreen())),
+            child: Text(tr.renew),
           ),
         ],
       ),

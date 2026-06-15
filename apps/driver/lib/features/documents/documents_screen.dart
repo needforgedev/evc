@@ -21,17 +21,32 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   final _picker = ImagePicker();
   final Set<String> _busy = {};
 
+  Future<DateTime?> _pickExpiry() {
+    final now = DateTime.now();
+    return showDatePicker(
+      context: context,
+      helpText: 'Document expiry date',
+      initialDate: DateTime(now.year + 1, now.month, now.day),
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: DateTime(now.year + 10),
+    );
+  }
+
   Future<void> _upload(String type, ImageSource source) async {
     try {
       final picked = await _picker.pickImage(source: source, imageQuality: 70);
       if (picked == null) return;
+      // Capture the document's expiry date (drives the compliance engine).
+      final expiry = await _pickExpiry();
+      if (expiry == null) return; // cancelled — don't upload without an expiry
       setState(() => _busy.add(type));
       final bytes = await picked.readAsBytes();
       final ext = picked.name.contains('.')
           ? picked.name.split('.').last.toLowerCase()
           : 'jpg';
-      await DocActions.upload(type, bytes, ext);
+      await DocActions.upload(type, bytes, ext, expiresAt: expiry);
       ref.invalidate(driverDocumentsProvider);
+      ref.invalidate(driverComplianceProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -188,6 +203,24 @@ class _DocRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onUpload;
 
+  static String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Widget _expiryLine(DateTime exp) {
+    final days = exp.difference(DateTime.now()).inDays;
+    final expired = days < 0;
+    final soon = !expired && days <= 60;
+    final color = expired
+        ? EvcColors.danger
+        : (soon ? const Color(0xFFB78000) : EvcColors.slate);
+    final text = expired
+        ? 'Expired ${_fmt(exp)} — renew & re-upload'
+        : 'Expires ${_fmt(exp)}${soon ? ' · in $days days' : ''}';
+    return Text(text,
+        style:
+            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600));
+  }
+
   @override
   Widget build(BuildContext context) {
     final uploaded = info != null;
@@ -224,6 +257,10 @@ class _DocRow extends StatelessWidget {
                   style: TextStyle(color: statusColor, fontSize: 13)),
             ],
           ),
+          if (info?.expiresAt != null) ...[
+            const SizedBox(height: 4),
+            _expiryLine(info!.expiresAt!),
+          ],
           const SizedBox(height: 12),
           if (busy)
             const Center(
