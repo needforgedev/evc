@@ -119,6 +119,8 @@ These shape everything downstream — record the final call and date.
 - [x] **Document upload** — each doc uploaded individually to the `driver-docs` Storage bucket; **gated** (no dashboard until all uploaded)
 - [x] Verification states — **real**: pending until Admin approves docs + account; **Go online gated on `active`**
 - [x] Vehicle profile (EV model/plate/battery/range/ownership) — **real**
+- [x] **Document expiry & compliance** — each doc captures an **expiry date**; **tiered 60/30/14/7-day alerts** (`run_compliance_check` + daily `pg_cron`) with an on-open **driver prompt + banner**; **auto-removal from dispatch + can't-go-online** when a doc lapses (real-time enforcement in `dispatch_trip`/`driver_set_online`); renew = re-upload → admin re-approve. *(Push/SMS delivery of reminders pending — see Notification.)*
+- [x] **Registration self-heal** — `ensure_driver_profile` RPC creates the `profiles`/`driver_details`/`wallet` rows server-side, fixing the `vehicles_owner_driver_id_fkey` error on re-register after a data wipe; driver-data providers invalidated on login so each driver gets their own doc gate.
 
 ### 2.2 Going online & receiving rides
 - [x] Online/offline toggle — **real** (`driver_set_online` RPC)
@@ -147,6 +149,7 @@ These shape everything downstream — record the final call and date.
 - [~] User management — *drivers real; rider management TBD*
 - [x] Live ops map — **real** fleet markers (`driver_locations`) + **real ongoing trips** as they happen; demand hotspots still illustrative
 - [x] Trip inspection + intervention — **real** trips (live); **cancel** via `cancel_trip` RPC (reassign/refund still stubs)
+- [x] **Compliance queue** — **real** (More → Compliance): drivers with documents expiring (60/30/14/7) or **expired**, most-urgent first, fed by `compliance_alerts`
 - [x] Support/dispute view — **real** `support_tickets`
 - [x] Overview KPIs — **real** (active trips, active drivers, completed, **revenue from completed trips**, pending)
 

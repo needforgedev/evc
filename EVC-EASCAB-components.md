@@ -38,7 +38,7 @@
 | 12 | Report Template | 🟡 | admin **KPIs**, live map, analytics views (earnings / CO₂ / demand) | Superset, SOAs, investor / partner reports |
 | 13 | Mathematics Room | 🟡 | real fare `(base + km + min) × multiplier`, VAT, **promo discount**, CO₂ (+ client mirror `EvcPricing`) | **versioned / replayable formula library**, single calc service |
 | 14 | AI Engine | ⬜ | — | forecasting / NLP / vision |
-| 15 | Compliance | 🟡 | manual doc approve / reject | expiry tracking, **tiered 60/30/14/7-day alerts**, auto-remove |
+| 15 | Compliance | 🟡 | doc approve/reject + **document-expiry tracking, tiered 60/30/14/7 alerts, auto-removal from dispatch** (real-time block + daily `pg_cron`) | KYC validity beyond docs; **push/SMS delivery** of the reminders |
 | 16 | Config Wizard | ⬜ | — | guided <30-min regional setup |
 | 17 | Feature Builder | ⬜ | — | the capstone (assemble features by config) |
 | 18 | Update Intelligence | ⬜ | — | Renovate + AI risk scoring |
@@ -71,14 +71,14 @@ Mapped against the PRD's requirement areas:
 |---|:--:|---|---|
 | **Actors & roles** (§2) | 🟡 | rider / driver / admin (generic) | Customer **T1/T2** (wallet KYC tiers); **OTR / Pinc / O&O / PRO / Lessee** captain pools; HQ/ops pools; Regional Admin |
 | **Rides — lifecycle** (RID-01…06) | 🟡 | request + **upfront estimate** + tracking + **mutual rating** + itemised receipt (**AR/EN**) + history; audited via `trip_events` | multi-stop; **SOS / trip-share / route-deviation**; captain **photo**; cancellation **fees** |
-| **Rides — matching/dispatch** (MAT-01…05) | 🟡 | single-pool nearest + **range- + tier-aware** dispatch | OTR/O&O auto-**split**; **PRO priority + heatmap**; **Pinc** female pool; **destination-triggered premium**; doc-expiry eligibility filter |
+| **Rides — matching/dispatch** (MAT-01…05) | 🟡 | single-pool nearest + **range- + tier- + compliance-aware** dispatch (expired-doc drivers auto-excluded) | OTR/O&O auto-**split**; **PRO priority + heatmap**; **Pinc** female pool; **destination-triggered premium** |
 | **Rides — fare engine** (FAR-01…03) | 🟡 | `(base + km + min) × tier-mult`, VAT, **promo discount**, min-fare | **distance-band multiplier** (2.5/2.0/1.5×); **RATE 1 / RATE 2** formulas; **5% global royalty**; **versioned/replayable** formulas; waiting-time |
 | **OTR operations** (OTR-01…06) | ⬜ | — | 50-vehicle lease pool; **6-h shifts**; handover inspection; **USD-24/day** algorithm; break-even monitoring |
-| **O&O operations** (ONO-01…04) | 🟡 | driver-owned vehicles (`ownership`) | Operate Contract; compliance cadence; **PRO** rules; **doc-expiry alerts + auto-removal** |
+| **O&O operations** (ONO-01…04) | 🟡 | driver-owned vehicles (`ownership`); **doc-expiry alerts (60/30/14/7) + auto-removal on lapse** | Operate Contract; compliance cadence; **PRO** rules |
 | **Charging** (CHG-01…08) | 🟡 | station **discovery map** (DEWA) + "I'm charging" status | **session lifecycle**; dual metering (grid/PV); **OCPP**; queue; **idle penalty**; **cross-sell ride**; Meeza discount; Watanya 30% |
 | **Vehicle sales** (SAL-01…04) | ⬜ | — | showroom / B2B pipeline; in-app vehicle browsing; Finance-by-Supply |
 | **Payments & money** (PAY-01…06) | 🟡 | `payments` recorded (amount / VAT / tip / **discount**), method selector | **FAKKA** capture; payouts/disbursements; refunds/chargebacks; e-invoicing (ETA); **P2P wallet** (CBE-gated) |
-| **KYC & compliance** (KYC-01…04) | 🟡 | driver doc upload + **manual admin approval** (audited) | tiered levels (none / soft / **hard-dual** / asset-guarantee); FAKKA financial KYC; **PDPL** residency; Pinc gender data |
+| **KYC & compliance** (KYC-01…04) | 🟡 | driver doc upload + **manual admin approval** (audited) + **doc-validity expiry tracking** | tiered levels (none / soft / **hard-dual** / asset-guarantee); FAKKA financial KYC; **PDPL** residency; Pinc gender data |
 | **Admin Console** (ADM-01…10) | 🟡 | approval queue + **doc review**; live map; trips; support; KPIs; **config console — edit rates / tiers / promos / surge, versioned + audited (`config_audit`)** | config **four-eyes + Global floors/ceilings**; **payout approvals**; station mgmt; sales pipeline; **audit viewer**; fraud workflows — *form factor: EVC admin is **native mobile**, PRD wants **web/PWA*** |
 | **Cross-cutting** (XCT-01…07) | 🟡 | phone+OTP + JWT sessions; trip audit; support tickets; **Arabic + RTL (EN/AR toggle, all 3 apps)** | push / in-app / **SMS** + SOS priority; **TOTP (admin)** + device binding; offline resilience; accessibility; Egypt data residency |
 
@@ -113,6 +113,8 @@ Every EVC change is tracked here against the PRD requirement it serves
 | Driver **tier** + tier-aware dispatch | MAT / FAR | ⚠️ **DIVERGES** — EVC go/comfort/xl/premium ≠ PRD **RATE 1/2 + OTR/O&O/Pinc/PRO**; reconcile (region-specific?) |
 | Admin **config console** + `config_audit` | ADM-03 · #2 Audit | ⚠️ versioned + audited ✅; **four-eyes + Global floors/ceilings** ❌ |
 | **Arabic + RTL** — all 3 apps (EN/AR toggle, full RTL, core flows) | **XCT-03 (#19)** · RID-05 | ✅ core done *(secondary screens English; DB-editable strings = follow-up)* |
+| **Compliance: doc-expiry + tiered 60/30/14/7 alerts + auto-removal** | **ONO-04 · MAT-05 · KYC-04 (#15)** | ✅ real engine — real-time block in `dispatch_trip`/`driver_set_online` + daily `pg_cron` + in-app driver prompt + admin queue; **push/SMS delivery deferred** (external) |
+| Registration self-heal (`ensure_driver_profile`) + provider invalidation on login | — | ➕ robustness — profile created server-side (no vehicle-FK error on re-register); per-driver doc gate |
 | Saved places | — | ➕ EVC UX extra (not a PRD req) |
 
 > **Decisions needed to fully sync** (PRD author = Junaid):
@@ -176,8 +178,9 @@ EVC has effectively built **the ride-hailing spine** of EASCAB:
 **Marketplace (#7)** gained tier-aware dispatch · **Human/Asset Pool (#8/#9)** gained the driver
 service tier · **Regional Config (#3) + Audit (#2)** gained the **admin config console**
 (editable rates/tiers/promos/surge with a `config_audit` trail) · **Language Engine (#19)** went
-from ⬜ → 🟡 with **EN/AR + full RTL across Rider, Driver and Admin**. *(See the PRD sync log above
-for how each maps to PRD requirement IDs.)*
+from ⬜ → 🟡 with **EN/AR + full RTL across Rider, Driver and Admin** · **Compliance (#15)** gained a
+real **document-expiry engine** (tiered 60/30/14/7 alerts + **auto-removal from dispatch**). *(See the
+PRD sync log above for how each maps to PRD requirement IDs.)*
 
 > Caveat: EVC is the **ride-hailing slice**, so naturally the ride components score highest. The
 > EASCAB-grade versions (versioned formula library, universal templates, multi-region config,
