@@ -59,7 +59,7 @@ These shape everything downstream — record the final call and date.
 ### 0.2 Shared packages
 - [x] `packages/core` — domain models + Supabase client (`EvcSupabase`) + dev-OTP auth (`EvcDevAuth`) + Rider/Driver registration
 - [x] `packages/ui_kit` — theme, colors, typography, base widgets, `Co2Badge`
-- [~] `packages/maps` — shared `PlaceholderMap` (mock); **real Google Maps + provider interface TBD**
+- [~] `packages/maps` — `PlaceholderMap` (mock) **+ real Google Maps** (`EvcGoogleMap`/`EvcMarker`) behind the provider abstraction, plus `EvcLocation` (device GPS with a UAE service-region fallback for dev-from-India). **Live on Driver + Rider home (Slice 1)**; Admin + Places/Directions/live-dot TBD
 - [~] `packages/realtime` — placeholder; apps use the Supabase client directly for now
 
 ### 0.3 Backend foundation  *(applied to the live Supabase project)*

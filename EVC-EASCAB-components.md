@@ -115,6 +115,7 @@ Every EVC change is tracked here against the PRD requirement it serves
 | **Arabic + RTL** — all 3 apps (EN/AR toggle, full RTL, core flows) | **XCT-03 (#19)** · RID-05 | ✅ core done *(secondary screens English; DB-editable strings = follow-up)* |
 | **Compliance: doc-expiry + tiered 60/30/14/7 alerts + auto-removal** | **ONO-04 · MAT-05 · KYC-04 (#15)** | ✅ real engine — real-time block in `dispatch_trip`/`driver_set_online` + daily `pg_cron` + in-app driver prompt + admin queue; **push/SMS delivery deferred** (external) |
 | Registration self-heal (`ensure_driver_profile`) + provider invalidation on login | — | ➕ robustness — profile created server-side (no vehicle-FK error on re-register); per-driver doc gate |
+| **Real Google map** — Driver **+ Rider** home (`EvcGoogleMap`, Dubai-centered) + `EvcLocation` GPS w/ UAE service-region fallback | **RID-03 · MAT** | ⚠️ **Slice 1 of 4** — real map tiles + dev-from-India fallback ✅ on Driver & Rider home; Places search, Directions/ETA, live moving dot, Admin map still TBD |
 | Saved places | — | ➕ EVC UX extra (not a PRD req) |
 
 > **Decisions needed to fully sync** (PRD author = Junaid):

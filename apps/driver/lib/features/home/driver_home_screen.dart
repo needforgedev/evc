@@ -4,7 +4,6 @@ import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../l10n/app_strings.dart';
-import '../../mock/mock_data.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_data.dart';
 import '../../state/driver_documents.dart';
@@ -25,6 +24,19 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   bool _busy = false;
   bool _jobOpen = false;
   bool _promptShown = false;
+
+  /// The driver's map position. Starts at Dubai, then resolves to the real GPS
+  /// fix — which, when developing outside the UAE (e.g. India), snaps back to
+  /// Dubai via [EvcLocation]'s service-region fallback.
+  LatLng _me = kDubaiCenter;
+
+  @override
+  void initState() {
+    super.initState();
+    EvcLocation.current().then((p) {
+      if (mounted) setState(() => _me = p);
+    });
+  }
 
   Future<void> _toggleOnline(DriverAccount d) async {
     setState(() => _busy = true);
@@ -109,8 +121,14 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: PlaceholderMap(pickup: DriverMock.driverLocation),
+          Positioned.fill(
+            child: EvcGoogleMap(
+              center: _me,
+              zoom: 14,
+              markers: [
+                EvcMarker(id: 'me', position: _me, title: 'You'),
+              ],
+            ),
           ),
           SafeArea(
             child: Padding(

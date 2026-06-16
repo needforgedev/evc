@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>GMapsApiKey</key>
+	<string>$(GMAPS_API_KEY)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>EVC uses your location to show your position on the map and match you with nearby riders.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>EVC needs camera access to capture your driver documents.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

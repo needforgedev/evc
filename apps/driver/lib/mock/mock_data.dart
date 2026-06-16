@@ -8,6 +8,8 @@ abstract final class DriverMock {
   static const Place driverLocation = Place(
     name: 'You',
     address: 'Business Bay',
+    lat: 25.1857,
+    lng: 55.2769,
     mapX: 0.40,
     mapY: 0.52,
   );

@@ -26,4 +26,11 @@ abstract final class EvcConfig {
   /// Whether the fixed-code dev OTP gate is active.
   static const bool devMockOtp =
       bool.fromEnvironment('DEV_MOCK_OTP', defaultValue: true);
+
+  // ── Google Maps ───────────────────────────────────────────────
+  /// Google Maps API key. The *native SDK* key is injected separately (Android
+  /// via Gradle manifest placeholder from `.env`; iOS via Info.plist). This
+  /// Dart-side copy is used for the HTTP Places/Directions calls (later slices).
+  static const String gmapsApiKey =
+      String.fromEnvironment('GMAPS_API_KEY', defaultValue: '');
 }

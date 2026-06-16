@@ -37,6 +37,8 @@ migrate_working_dir/
 **/.env
 **/env.json
 !**/.env.example
+# iOS Google Maps key (mirrors .env; injected into Info.plist via xcconfig).
+**/ios/Flutter/Maps.xcconfig
 
 # Monorepo: build artifacts live under apps/*/ and packages/* — ignore them
 # everywhere, not just at the old repo root.

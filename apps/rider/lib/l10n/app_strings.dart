@@ -34,6 +34,7 @@ class AppStrings {
   // ── home / booking ──
   String get whereAreYouGoing => _t('whereAreYouGoing');
   String get whereTo => _t('whereTo');
+  String get pickup => _t('pickup');
   String get saved => _t('saved');
   String get electric => _t('electric');
   String get planYourRide => _t('planYourRide');
@@ -126,6 +127,7 @@ class AppStrings {
     'incorrectCode': 'Incorrect or expired code.',
     'whereAreYouGoing': 'Where are you going?',
     'whereTo': 'Where to?',
+    'pickup': 'Pickup',
     'saved': 'Saved',
     'electric': '100% electric',
     'planYourRide': 'Plan your ride',
@@ -198,6 +200,7 @@ class AppStrings {
     'incorrectCode': 'رمز غير صحيح أو منتهي الصلاحية.',
     'whereAreYouGoing': 'إلى أين تريد الذهاب؟',
     'whereTo': 'إلى أين؟',
+    'pickup': 'الانطلاق',
     'saved': 'المحفوظة',
     'electric': 'كهربائية 100٪',
     'planYourRide': 'خطّط لرحلتك',

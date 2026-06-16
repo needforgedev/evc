@@ -17,7 +17,10 @@ dependencies:
     path: ../core
   evc_ui_kit:
     path: ../ui_kit
-  # Provider plugins (google_maps_flutter, geolocator, etc.) get added here.
+  # Real map + location providers. App code never imports these directly — it
+  # goes through EvcGoogleMap / EvcLocation so the provider can be swapped later.
+  google_maps_flutter: ^2.10.0
+  geolocator: ^13.0.2
 
 dev_dependencies:
   flutter_test:

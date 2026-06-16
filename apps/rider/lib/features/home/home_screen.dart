@@ -14,8 +14,26 @@ import 'package:evc_maps/evc_maps.dart';
 import '../search/destination_search_screen.dart';
 
 /// Home — map + "where to?" booking entry point.
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  /// The rider's map position. Starts at Dubai, then resolves to the real GPS
+  /// fix — which snaps back to Dubai when developing outside the UAE (see
+  /// [EvcLocation]).
+  LatLng _me = kDubaiCenter;
+
+  @override
+  void initState() {
+    super.initState();
+    EvcLocation.current().then((p) {
+      if (mounted) setState(() => _me = p);
+    });
+  }
 
   Future<void> _chooseDestination(BuildContext context, WidgetRef ref,
       {Place? preset}) async {
@@ -31,13 +49,22 @@ class HomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pickup = ref.watch(bookingControllerProvider).pickup;
-
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: PlaceholderMap(pickup: pickup)),
+          Positioned.fill(
+            child: EvcGoogleMap(
+              center: _me,
+              zoom: 14,
+              markers: [
+                EvcMarker(
+                    id: 'pickup',
+                    position: _me,
+                    title: AppStrings.of(context).pickup),
+              ],
+            ),
+          ),
           // Top controls.
           SafeArea(
             child: Padding(
