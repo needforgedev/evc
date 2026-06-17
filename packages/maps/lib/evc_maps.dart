@@ -12,6 +12,7 @@ export 'src/placeholder_map.dart';
 export 'src/evc_google_map.dart';
 export 'src/evc_location.dart';
 export 'src/evc_directions.dart';
+export 'src/evc_places.dart';
 
 /// Marker constant identifying the current map provider.
 const String evcMapsProvider = 'google_maps';
