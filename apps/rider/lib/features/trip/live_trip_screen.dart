@@ -9,6 +9,7 @@ import '../../l10n/app_strings.dart';
 import '../../state/active_trip_provider.dart';
 import '../../state/assigned_driver_provider.dart';
 import '../../state/booking_controller.dart';
+import '../../state/route_provider.dart';
 
 /// Live trip screen driven by the real `trips` row (Realtime).
 /// Step 3: real driver/vehicle card, status-aware tracking, receipt + rating.
@@ -91,20 +92,53 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
       carProgress = 1;
     }
 
+    final dest = booking.destination;
+    final road = dest == null
+        ? null
+        : ref
+            .watch(routeProvider((
+              oLat: booking.pickup.lat,
+              oLng: booking.pickup.lng,
+              dLat: dest.lat,
+              dLng: dest.lng,
+            )))
+            .value;
+    final routePts = road?.points ?? const <LatLng>[];
+
     return Scaffold(
       body: Stack(
         children: [
           Positioned.fill(
             child: AnimatedBuilder(
               animation: _car,
-              builder: (_, _) => PlaceholderMap(
-                pickup: booking.pickup,
-                destination: booking.destination,
-                showRoute: true,
-                carProgress: status == LiveTripStatus.ongoing
-                    ? _car.value
-                    : carProgress,
-              ),
+              builder: (_, _) {
+                final progress =
+                    status == LiveTripStatus.ongoing ? _car.value : carProgress;
+                return EvcGoogleMap(
+                  center: LatLng(booking.pickup.lat, booking.pickup.lng),
+                  route: routePts,
+                  markers: [
+                    EvcMarker(
+                        id: 'pickup',
+                        position:
+                            LatLng(booking.pickup.lat, booking.pickup.lng),
+                        title: AppStrings.of(context).pickup,
+                        hue: EvcMarkerHue.green),
+                    if (dest != null)
+                      EvcMarker(
+                          id: 'dest',
+                          position: LatLng(dest.lat, dest.lng),
+                          title: dest.name,
+                          hue: EvcMarkerHue.red),
+                    if (progress != null && routePts.length >= 2)
+                      EvcMarker(
+                          id: 'car',
+                          position: pointAlong(routePts, progress),
+                          title: 'EV',
+                          hue: EvcMarkerHue.azure),
+                  ],
+                );
+              },
             ),
           ),
           SafeArea(

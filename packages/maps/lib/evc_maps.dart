@@ -11,6 +11,7 @@ export 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 export 'src/placeholder_map.dart';
 export 'src/evc_google_map.dart';
 export 'src/evc_location.dart';
+export 'src/evc_directions.dart';
 
 /// Marker constant identifying the current map provider.
 const String evcMapsProvider = 'google_maps';

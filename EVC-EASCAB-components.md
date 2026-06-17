@@ -115,7 +115,8 @@ Every EVC change is tracked here against the PRD requirement it serves
 | **Arabic + RTL** — all 3 apps (EN/AR toggle, full RTL, core flows) | **XCT-03 (#19)** · RID-05 | ✅ core done *(secondary screens English; DB-editable strings = follow-up)* |
 | **Compliance: doc-expiry + tiered 60/30/14/7 alerts + auto-removal** | **ONO-04 · MAT-05 · KYC-04 (#15)** | ✅ real engine — real-time block in `dispatch_trip`/`driver_set_online` + daily `pg_cron` + in-app driver prompt + admin queue; **push/SMS delivery deferred** (external) |
 | Registration self-heal (`ensure_driver_profile`) + provider invalidation on login | — | ➕ robustness — profile created server-side (no vehicle-FK error on re-register); per-driver doc gate |
-| **Real Google map** — Driver **+ Rider** home (`EvcGoogleMap`, Dubai-centered) + `EvcLocation` GPS w/ UAE service-region fallback | **RID-03 · MAT** | ⚠️ **Slice 1 of 4** — real map tiles + dev-from-India fallback ✅ on Driver & Rider home; Places search, Directions/ETA, live moving dot, Admin map still TBD |
+| **Real Google map** — Driver home + **driver active-trip** **+ Rider** home (`EvcGoogleMap`, Dubai-centered) + `EvcLocation` GPS w/ UAE service-region fallback | **RID-03 · MAT** | ⚠️ **Slices 1+3 of 4** — real map tiles + dev-from-India fallback ✅; **real route polyline + road distance/drive-time (Directions API)** on rider booking/live-trip + driver active-trip ✅; Places search (Slice 2) + live moving dot (Slice 4) + Admin map still TBD |
+| Driver accept robustness (`accept_ride` idempotent + clear messages) | MAT-* | ➕ ✅ **verified** — fixes "not assigned" P0001 on the 15s offer-expiry race; accept cancels the auto-decline timer (window 15→30s), idempotent on double-tap, friendly expiry/reassign messages |
 | Saved places | — | ➕ EVC UX extra (not a PRD req) |
 
 > **Decisions needed to fully sync** (PRD author = Junaid):

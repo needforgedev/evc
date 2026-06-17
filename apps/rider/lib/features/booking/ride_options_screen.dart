@@ -9,6 +9,7 @@ import '../../l10n/app_strings.dart';
 import '../../mock/mock_data.dart';
 import '../../state/booking_controller.dart';
 import '../../state/pricing_provider.dart';
+import '../../state/route_provider.dart';
 import '../trip/live_trip_screen.dart';
 
 /// Choose a ride tier + payment, see the upfront fare, and confirm.
@@ -49,6 +50,20 @@ class RideOptionsScreen extends ConsumerWidget {
         : EvcPricing.estimate(
             distanceKm: distanceKm, multiplier: 1, p: data.pricing);
 
+    // Real road route (polyline + drive-time) for the preview map + summary.
+    final road = dest == null
+        ? null
+        : ref
+            .watch(routeProvider((
+              oLat: booking.pickup.lat,
+              oLng: booking.pickup.lng,
+              dLat: dest.lat,
+              dLng: dest.lng,
+            )))
+            .value;
+    final summaryMin = road?.durationMin ?? route?.durationMin;
+    final summaryKm = road?.distanceKm ?? route?.distanceKm;
+
     return Scaffold(
       body: Column(
         children: [
@@ -61,10 +76,23 @@ class RideOptionsScreen extends ConsumerWidget {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: PlaceholderMap(
-                    pickup: booking.pickup,
-                    destination: booking.destination,
-                    showRoute: true,
+                  child: EvcGoogleMap(
+                    center: LatLng(booking.pickup.lat, booking.pickup.lng),
+                    markers: [
+                      EvcMarker(
+                          id: 'pickup',
+                          position:
+                              LatLng(booking.pickup.lat, booking.pickup.lng),
+                          title: AppStrings.of(context).pickup,
+                          hue: EvcMarkerHue.green),
+                      if (dest != null)
+                        EvcMarker(
+                            id: 'dest',
+                            position: LatLng(dest.lat, dest.lng),
+                            title: dest.name,
+                            hue: EvcMarkerHue.red),
+                    ],
+                    route: road?.points ?? const [],
                   ),
                 ),
                 SafeArea(
@@ -102,7 +130,8 @@ class RideOptionsScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  _routeSummary(context, booking, route),
+                  _routeSummary(context, booking,
+                      minutes: summaryMin, km: summaryKm),
                   const Divider(height: 1),
                   Expanded(
                     child: ListView(
@@ -127,8 +156,8 @@ class RideOptionsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _routeSummary(
-      BuildContext context, BookingState booking, FareEstimate? route) {
+  Widget _routeSummary(BuildContext context, BookingState booking,
+      {int? minutes, double? km}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
       child: Row(
@@ -159,12 +188,9 @@ class RideOptionsScreen extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                Text(route == null ? '—' : '${route.durationMin} min',
+                Text(minutes == null ? '—' : '$minutes min',
                     style: const TextStyle(fontWeight: FontWeight.w800)),
-                Text(
-                    route == null
-                        ? ''
-                        : '${route.distanceKm.toStringAsFixed(1)} km',
+                Text(km == null ? '' : '${km.toStringAsFixed(1)} km',
                     style:
                         const TextStyle(color: EvcColors.slate, fontSize: 12)),
               ],

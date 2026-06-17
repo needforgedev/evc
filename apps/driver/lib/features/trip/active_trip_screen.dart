@@ -10,17 +10,13 @@ import '../../l10n/app_strings.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_data.dart';
 import '../../state/driver_job_provider.dart';
+import '../../state/route_provider.dart';
 
-Place _place(String name, double? lat, double? lng) {
-  final la = lat ?? 25.18, ln = lng ?? 55.25;
-  return Place(
-    name: name,
-    address: '',
-    lat: la,
-    lng: ln,
-    mapX: (((ln - 55.10) / 0.30).clamp(0.05, 0.95)).toDouble(),
-    mapY: (((25.30 - la) / 0.30).clamp(0.05, 0.95)).toDouble(),
-  );
+/// Pull a clean message out of a thrown error (e.g. a PostgrestException) so the
+/// driver sees "This ride request has expired" instead of the raw exception.
+String _cleanError(Object e) {
+  final m = RegExp(r'message: ([^,]+?)(?:,|\))').firstMatch(e.toString());
+  return m?.group(1)?.trim() ?? e.toString();
 }
 
 /// The driver's live job: incoming offer → accept/decline → enroute → arrived →
@@ -43,7 +39,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+            .showSnackBar(SnackBar(content: Text(_cleanError(e))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -85,15 +81,33 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final pickup = _place(job.pickupName, job.pickupLat, job.pickupLng);
-    final dest = _place(job.destName, job.destLat, job.destLng);
+    final pLat = job.pickupLat ?? 25.18, pLng = job.pickupLng ?? 55.25;
+    final dLat = job.destLat ?? 25.18, dLng = job.destLng ?? 55.25;
+    final road = ref
+        .watch(routeProvider(
+            (oLat: pLat, oLng: pLng, dLat: dLat, dLng: dLng)))
+        .value;
 
     return Scaffold(
       body: Stack(
         children: [
           Positioned.fill(
-            child: PlaceholderMap(
-                pickup: pickup, destination: dest, showRoute: true),
+            child: EvcGoogleMap(
+              center: LatLng(pLat, pLng),
+              route: road?.points ?? const [],
+              markers: [
+                EvcMarker(
+                    id: 'pickup',
+                    position: LatLng(pLat, pLng),
+                    title: job.pickupName,
+                    hue: EvcMarkerHue.green),
+                EvcMarker(
+                    id: 'dest',
+                    position: LatLng(dLat, dLng),
+                    title: job.destName,
+                    hue: EvcMarkerHue.red),
+              ],
+            ),
           ),
           SafeArea(
             child: Padding(
@@ -232,9 +246,10 @@ class _OfferCard extends StatefulWidget {
 }
 
 class _OfferCardState extends State<_OfferCard> {
-  static const _seconds = 15;
+  static const _seconds = 30;
   int _remaining = _seconds;
   Timer? _timer;
+  bool _acted = false; // guards against accept/decline racing the timer
 
   @override
   void initState() {
@@ -242,11 +257,24 @@ class _OfferCardState extends State<_OfferCard> {
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _remaining--);
-      if (_remaining <= 0) {
-        t.cancel();
-        widget.onDecline();
-      }
+      if (_remaining <= 0) _decline();
     });
+  }
+
+  /// Stop the countdown the instant the driver acts, so the auto-decline can't
+  /// fire mid-accept and un-match the trip (which caused the accept error).
+  void _accept() {
+    if (_acted) return;
+    _acted = true;
+    _timer?.cancel();
+    widget.onAccept();
+  }
+
+  void _decline() {
+    if (_acted) return;
+    _acted = true;
+    _timer?.cancel();
+    widget.onDecline();
   }
 
   @override
@@ -316,7 +344,7 @@ class _OfferCardState extends State<_OfferCard> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: widget.busy ? null : widget.onDecline,
+                  onPressed: widget.busy ? null : _decline,
                   child: Text(AppStrings.of(context).decline),
                 ),
               ),
@@ -324,7 +352,7 @@ class _OfferCardState extends State<_OfferCard> {
               Expanded(
                 flex: 2,
                 child: FilledButton(
-                  onPressed: widget.busy ? null : widget.onAccept,
+                  onPressed: widget.busy ? null : _accept,
                   child: Text(AppStrings.of(context).accept),
                 ),
               ),
