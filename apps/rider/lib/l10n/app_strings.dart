@@ -67,6 +67,9 @@ class AppStrings {
   String get meetAtPickup => _t('meetAtPickup');
   String get onTheWayToYou => _t('onTheWayToYou');
   String get creatingTrip => _t('creatingTrip');
+  String get noDriverFound => _t('noDriverFound');
+  String get noDriverFoundBody => _t('noDriverFoundBody');
+  String get chooseAnotherOption => _t('chooseAnotherOption');
   String onYourWayMin(int n) =>
       isAr ? 'في طريقك · ~$n دقيقة' : 'On your way · ~$n min';
   String get onYourWay => _t('onYourWay');
@@ -153,6 +156,10 @@ class AppStrings {
     'meetAtPickup': 'Meet your driver at the pickup point.',
     'onTheWayToYou': 'On the way to you.',
     'creatingTrip': 'Creating your trip…',
+    'noDriverFound': 'No driver available right now',
+    'noDriverFoundBody':
+        'We couldn’t find a nearby EV for this ride. Try another tier or try again shortly.',
+    'chooseAnotherOption': 'Choose another option',
     'onYourWay': 'On your way',
     'subtotal': 'Subtotal',
     'vat': 'VAT (5%)',
@@ -226,6 +233,10 @@ class AppStrings {
     'meetAtPickup': 'قابل سائقك في نقطة الانطلاق.',
     'onTheWayToYou': 'في الطريق إليك.',
     'creatingTrip': 'جارٍ إنشاء رحلتك…',
+    'noDriverFound': 'لا يوجد سائق متاح حالياً',
+    'noDriverFoundBody':
+        'لم نتمكن من إيجاد سيارة كهربائية قريبة لهذه الرحلة. جرّب فئة أخرى أو حاول مرة أخرى بعد قليل.',
+    'chooseAnotherOption': 'اختر خياراً آخر',
     'onYourWay': 'في طريقك',
     'subtotal': 'المجموع الفرعي',
     'vat': 'ضريبة القيمة المضافة (5٪)',

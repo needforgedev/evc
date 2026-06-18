@@ -115,9 +115,10 @@ Every EVC change is tracked here against the PRD requirement it serves
 | **Arabic + RTL** — all 3 apps (EN/AR toggle, full RTL, core flows) | **XCT-03 (#19)** · RID-05 | ✅ core done *(secondary screens English; DB-editable strings = follow-up)* |
 | **Compliance: doc-expiry + tiered 60/30/14/7 alerts + auto-removal** | **ONO-04 · MAT-05 · KYC-04 (#15)** | ✅ real engine — real-time block in `dispatch_trip`/`driver_set_online` + daily `pg_cron` + in-app driver prompt + admin queue; **push/SMS delivery deferred** (external) |
 | Registration self-heal (`ensure_driver_profile`) + provider invalidation on login | — | ➕ robustness — profile created server-side (no vehicle-FK error on re-register); per-driver doc gate |
-| **Real Google map** — Driver home + **driver active-trip** **+ Rider** home (`EvcGoogleMap`, Dubai-centered) + `EvcLocation` GPS w/ UAE service-region fallback | **RID-03 · MAT** | ⚠️ **Slices 1+2+3 of 4** — real map tiles + dev-from-India fallback ✅; **real route polyline + road distance/drive-time (Directions API)** on rider booking/live-trip + driver active-trip ✅; **real Google Places autocomplete (UAE-restricted) on destination search (Slice 2)** ✅; live moving dot (Slice 4) + Admin map still TBD |
-| Destination search — Google Places autocomplete | **RID-01** | ✅ real type-ahead (`EvcPlaces`, UAE-restricted, Dubai-biased, session-token) → real lat/lng into pricing/dispatch/route; graceful local fallback if Places API off |
+| **Real Google map** — Driver home + **driver active-trip** **+ Rider** home (`EvcGoogleMap`, Dubai-centered) + `EvcLocation` GPS w/ UAE service-region fallback | **RID-03 · MAT** | ⚠️ **Slices 1+2+3 of 4** — real map tiles + dev-from-India fallback ✅; **real route polyline + road distance/drive-time (Directions API)** on rider booking/live-trip + driver active-trip ✅; **real Google Places autocomplete (UAE-restricted) on destination search (Slice 2)** ✅ verified; live moving dot (Slice 4) + Admin map still TBD |
+| Destination search — Google Places autocomplete | **RID-01** | ✅ **verified** — real type-ahead via **Places API (New)** (`EvcPlaces`, UAE-restricted, Dubai-biased, session-token) → real lat/lng into pricing/dispatch/route; surfaces API errors in-UI; graceful local fallback if Places API off |
 | Driver accept robustness (`accept_ride` idempotent + clear messages) | MAT-* | ➕ ✅ **verified** — fixes "not assigned" P0001 on the 15s offer-expiry race; accept cancels the auto-decline timer (window 15→30s), idempotent on double-tap, friendly expiry/reassign messages |
+| No-availability handling — dispatch radius + per-tier availability + graceful no-match | **MAT / RID-02** | ➕ **#3** `dispatch_trip` enforces a `pricing.dispatch_radius_km` (10 km) cap · **#1** `nearby_tiers()` RPC → booking shows per-tier "N min away" / greys out empty tiers / default-picks an available one · **#2** request returns `no_driver` → orphan canceled + **alternatives sheet** (other available tiers, re-book on tap) + 45s search-timeout panel on the live screen (no more infinite "Finding your EV…") |
 | Saved places | — | ➕ EVC UX extra (not a PRD req) |
 
 > **Decisions needed to fully sync** (PRD author = Junaid):
@@ -162,6 +163,36 @@ these are **deliberate choices, not deficits**: read them as "N/A for a monolith
 > **Net:** of the 20, the **architecture-only** components are exactly **#0, #5, #18**. Everything
 > else on the scorecard is a **functional** capability (present, partial, or missing) — those are
 > the real build items; the architecture-only ones are infra/ops decisions, not product features.
+
+### Containerization / Docker — decision on record (2026-06-17)
+
+The Build Scope Brief is **containerization-centric**: 20 EASCAB-authored services, each in its own
+**encrypted Docker container**, on **Kubernetes + etcd** with **Kong** as the gateway and a
+**Registry (#0)** doing four-eyes deployment governance. This is an **architecture/infra** spec, not
+an app/functional requirement.
+
+**EVC stance: not needed, intentionally out of scope.** Verified in-repo — **no Dockerfiles, no
+Kubernetes/etcd/Kong**. EVC's backend is **managed Supabase** (Postgres + Auth + Realtime + Storage
++ Edge Functions). Rationale:
+- Supabase already runs as **managed containerized infra** — the *spirit* ("backend = containerized
+  services") holds without EVC authoring or orchestrating 20 containers.
+- The 20-container / K8s split only pays off at EASCAB's **multi-region, 20-component** scale; for a
+  single-region ride app it's pure overhead (the *"modular monolith first"* decision).
+- **Escape hatch:** if self-hosting is ever mandated (data-residency, on-prem), Supabase can be
+  self-hosted via **Docker Compose** — so this is reversible, not a dead end.
+
+→ **Docker is therefore neither a gap nor a to-do.** Revisit only if/when the EASCAB multi-region
+platform track is reopened.
+
+### Live external-API calls — flag to revisit before production
+
+Recent map work (Slices 1–3) calls **Google Places / Directions directly from the client**
+([`evc_places.dart`](packages/maps/lib/src/evc_places.dart),
+[`evc_directions.dart`](packages/maps/lib/src/evc_directions.dart)) with the dart-define key. This
+is the **opposite** of the Brief's **#5 API Puzzle Engine** principle (*"no component calls an
+external API directly"*). Acceptable for dev; **before production, proxy these through a Supabase
+edge function** (mediated gateway + hides the key + central rate-limit) to align with #5. Tracked
+here so it isn't forgotten.
 
 ---
 

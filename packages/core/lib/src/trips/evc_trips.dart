@@ -10,6 +10,31 @@ class PromoResult {
   final String? description;
 }
 
+/// Per-tier driver availability near a pickup (from `nearby_tiers`).
+class TierAvailability {
+  const TierAvailability({
+    required this.tierId,
+    required this.drivers,
+    required this.etaMin,
+  });
+
+  final String tierId;
+
+  /// Eligible drivers of this tier within the service radius.
+  final int drivers;
+
+  /// Pickup ETA of the nearest such driver (minutes), or null if none.
+  final int? etaMin;
+
+  bool get available => drivers > 0;
+
+  factory TierAvailability.fromRow(Map<String, dynamic> r) => TierAvailability(
+        tierId: r['tier_id'] as String,
+        drivers: (r['drivers'] as num?)?.toInt() ?? 0,
+        etaMin: (r['eta_min'] as num?)?.toInt(),
+      );
+}
+
 /// Live trip operations against Supabase (request / stream / cancel).
 abstract final class EvcTrips {
   /// Rider books a ride: creates the `trips` row, prices it (server-side from
@@ -42,6 +67,24 @@ abstract final class EvcTrips {
       'p_promo_code': promoCode,
     });
     return ActiveTrip.fromRow(_asRow(res));
+  }
+
+  /// Per-tier driver availability + pickup ETA near [pickupLat]/[pickupLng] for a
+  /// trip of [distanceKm]. Powers the booking screen's "3 min away" / "Unavailable
+  /// nearby" hints and the no-driver alternatives.
+  static Future<List<TierAvailability>> nearbyTiers({
+    required double pickupLat,
+    required double pickupLng,
+    required double distanceKm,
+  }) async {
+    final res = await EvcSupabase.client.rpc('nearby_tiers', params: {
+      'p_lat': pickupLat,
+      'p_lng': pickupLng,
+      'p_dist_km': distanceKm,
+    });
+    return (res as List)
+        .map((r) => TierAvailability.fromRow(r as Map<String, dynamic>))
+        .toList();
   }
 
   /// Realtime stream of a single trip row (status updates as it progresses).

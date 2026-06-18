@@ -8,6 +8,7 @@ import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
 import '../../mock/mock_data.dart';
+import '../../state/booking_controller.dart';
 import '../../state/saved_places_provider.dart';
 
 /// Search / pick a destination. Real Google Places type-ahead (UAE-restricted),
@@ -119,7 +120,7 @@ class _DestinationSearchScreenState
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            MockData.currentLocation.address,
+                            ref.watch(bookingControllerProvider).pickup.address,
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),

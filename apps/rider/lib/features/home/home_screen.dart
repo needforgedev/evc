@@ -30,6 +30,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // The booking pickup is seeded from EvcLocation in BookingController; here we
+    // just resolve the map center.
     EvcLocation.current().then((p) {
       if (mounted) setState(() => _me = p);
     });

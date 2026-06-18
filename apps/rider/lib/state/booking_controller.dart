@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
+import 'package:evc_maps/evc_maps.dart';
 
 import '../mock/mock_data.dart';
 
@@ -60,10 +61,31 @@ class BookingState {
 /// Holds the in-progress booking selection (pickup, destination, tier, payment).
 class BookingController extends Notifier<BookingState> {
   @override
-  BookingState build() => BookingState(
-        pickup: MockData.currentLocation,
-        payment: MockData.paymentMethods.first,
+  BookingState build() {
+    _seedRealPickup();
+    return BookingState(
+      pickup: MockData.currentLocation,
+      payment: MockData.paymentMethods.first,
+    );
+  }
+
+  /// Replace the default pickup with the rider's real location (with the UAE
+  /// service-region fallback) so dispatch matches drivers near where they
+  /// actually are — not the hardcoded Marina default. Skips if the rider has
+  /// already chosen a pickup.
+  Future<void> _seedRealPickup() async {
+    final me = await EvcLocation.current();
+    if (identical(state.pickup, MockData.currentLocation)) {
+      state = state.copyWith(
+        pickup: Place(
+          name: 'Current location',
+          address: 'Current location',
+          lat: me.latitude,
+          lng: me.longitude,
+        ),
       );
+    }
+  }
 
   void setDestination(Place place) =>
       state = state.copyWith(destination: place, tier: MockData.tiers.first);

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
+import 'package:evc_maps/evc_maps.dart';
 
 /// The signed-in driver, assembled from profiles + driver_details + vehicle.
 @immutable
@@ -112,17 +113,17 @@ final currentDriverProvider = FutureProvider<DriverAccount?>((ref) async {
 
 /// Live driver mutations against Supabase.
 abstract final class DriverActions {
-  // Default GPS until real geolocation is added (Business Bay, Dubai).
-  static const double _lat = 25.1860;
-  static const double _lng = 55.2620;
-
   static Future<void> goOnline(bool online) async {
     if (!EvcSupabase.isReady) return;
     final client = EvcSupabase.client;
     await client.rpc('driver_set_online', params: {'p_online': online});
     if (online) {
+      // Publish the driver's real position (with the UAE service-region
+      // fallback) so dispatch's radius/nearest matching uses where they
+      // actually are — not a hardcoded default.
+      final me = await EvcLocation.current();
       await client.rpc('driver_update_location',
-          params: {'p_lat': _lat, 'p_lng': _lng});
+          params: {'p_lat': me.latitude, 'p_lng': me.longitude});
     }
   }
 

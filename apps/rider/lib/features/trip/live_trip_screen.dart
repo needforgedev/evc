@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
@@ -30,10 +32,29 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
       AnimationController(vsync: this, duration: const Duration(seconds: 45));
   bool _rated = false;
 
+  // Search safety-net: if the trip sits unmatched too long (e.g. a driver
+  // declined and nobody else qualifies), surface a "no driver" state instead of
+  // spinning forever.
+  Timer? _searchTimeout;
+  bool _noDriver = false;
+
   @override
   void dispose() {
     _car.dispose();
+    _searchTimeout?.cancel();
     super.dispose();
+  }
+
+  void _manageSearchTimeout(LiveTripStatus status) {
+    if (status == LiveTripStatus.requested) {
+      _searchTimeout ??= Timer(const Duration(seconds: 45), () {
+        if (mounted) setState(() => _noDriver = true);
+      });
+    } else {
+      _searchTimeout?.cancel();
+      _searchTimeout = null;
+      _noDriver = false;
+    }
   }
 
   void _syncCar(LiveTripStatus s) {
@@ -82,6 +103,7 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
 
     // Drive the animated dot off the live status.
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncCar(status));
+    _manageSearchTimeout(status);
 
     double? carProgress;
     if (status == LiveTripStatus.enroute || status == LiveTripStatus.arrived) {
@@ -195,7 +217,30 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
 
   // ───────────────────────── panels ─────────────────────────
 
-  List<Widget> _searching(ActiveTrip? trip) => [
+  List<Widget> _searching(ActiveTrip? trip) {
+    if (_noDriver) {
+      return [
+        Row(
+          children: [
+            const Icon(Icons.search_off, color: EvcColors.danger),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(AppStrings.of(context).noDriverFound,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(AppStrings.of(context).noDriverFoundBody,
+            style: const TextStyle(color: EvcColors.slate)),
+        const SizedBox(height: 16),
+        FilledButton(
+            onPressed: _cancel,
+            child: Text(AppStrings.of(context).chooseAnotherOption)),
+      ];
+    }
+    return [
         Row(
           children: [
             const SizedBox(
@@ -225,6 +270,7 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
         OutlinedButton(
             onPressed: _cancel, child: Text(AppStrings.of(context).cancelRide)),
       ];
+  }
 
   List<Widget> _driverPanel(ActiveTrip? trip, LiveTripStatus status) {
     final arrived = status == LiveTripStatus.arrived;
