@@ -60,14 +60,8 @@ class RideOptionsScreen extends ConsumerWidget {
     final anyAvailable =
         !availabilityKnown || tiers.any((t) => avail[t.id]?.available ?? false);
 
-    var selected = tiers.firstWhere((t) => t.id == booking.effectiveTier.id,
+    final selected = tiers.firstWhere((t) => t.id == booking.effectiveTier.id,
         orElse: () => tiers.first);
-    // If the chosen tier has no cars nearby, prefer the cheapest tier that does.
-    if (availabilityKnown && !(avail[selected.id]?.available ?? true)) {
-      final firstAvail =
-          tiers.where((t) => avail[t.id]?.available ?? false).toList();
-      if (firstAvail.isNotEmpty) selected = firstAvail.first;
-    }
     final route = data == null
         ? null
         : EvcPricing.estimate(
@@ -167,15 +161,14 @@ class RideOptionsScreen extends ConsumerWidget {
                             availabilityKnown: availabilityKnown,
                             available: avail[tier.id]?.available ?? true,
                             etaMin: avail[tier.id]?.etaMin,
-                            onTap: (availabilityKnown &&
-                                    !(avail[tier.id]?.available ?? true))
-                                ? null
-                                : () => controller.setTier(tier),
+                            // Any tier is selectable — an empty one queues and
+                            // waits (requeue matches it when a car appears).
+                            onTap: () => controller.setTier(tier),
                           ),
                       ],
                     ),
                   ),
-                  _footer(context, ref, booking, selected, tiers, avail,
+                  _footer(context, ref, booking, selected,
                       anyAvailable: anyAvailable),
                 ],
               ),
@@ -232,9 +225,7 @@ class RideOptionsScreen extends ConsumerWidget {
   }
 
   Widget _footer(BuildContext context, WidgetRef ref, BookingState booking,
-      RideTier selected, List<RideTier> tiers,
-      Map<String, TierAvailability> avail,
-      {required bool anyAvailable}) {
+      RideTier selected, {required bool anyAvailable}) {
     return Container(
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: EvcColors.line)),
@@ -304,16 +295,16 @@ class RideOptionsScreen extends ConsumerWidget {
               if (!anyAvailable)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 8),
-                  child: Text('No EVs available nearby right now.',
+                  child: Text(
+                      'No EVs nearby right now — we’ll keep looking once you request.',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: EvcColors.danger,
+                          color: EvcColors.slate,
                           fontWeight: FontWeight.w600,
                           fontSize: 13)),
                 ),
               FilledButton(
-                onPressed: anyAvailable
-                    ? () => _confirm(context, ref, booking, selected, tiers, avail)
-                    : null,
+                onPressed: () => _confirm(context, ref, booking, selected),
                 child: Text(_confirmLabel(
                     AppStrings.of(context), selected, booking.promoDiscount)),
               ),
@@ -325,8 +316,7 @@ class RideOptionsScreen extends ConsumerWidget {
   }
 
   Future<void> _confirm(BuildContext context, WidgetRef ref,
-      BookingState booking, RideTier tier, List<RideTier> tiers,
-      Map<String, TierAvailability> avail) async {
+      BookingState booking, RideTier tier) async {
     final dest = booking.destination;
     if (dest == null) return;
 
@@ -351,16 +341,8 @@ class RideOptionsScreen extends ConsumerWidget {
       );
       if (!context.mounted) return;
       Navigator.of(context).pop(); // dismiss loading
-
-      // No driver matched at request time → don't strand the rider on an
-      // endless "Finding your EV…". Drop the orphan trip and offer alternatives.
-      if (trip.status == LiveTripStatus.requested) {
-        await EvcTrips.cancel(trip.id, reason: 'No driver available');
-        if (!context.mounted) return;
-        _showNoDriver(context, ref, booking, tier, tiers, avail);
-        return;
-      }
-
+      // Matched → driver shown immediately; unmatched → the live screen waits on
+      // "Finding your EV…" and requeue matches it when a car becomes available.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => LiveTripScreen(tripId: trip.id)),
       );
@@ -371,73 +353,6 @@ class RideOptionsScreen extends ConsumerWidget {
           .showSnackBar(SnackBar(
               content: Text('${AppStrings.of(context).couldNotRequest}: $e')));
     }
-  }
-
-  /// Shown when the chosen tier has no driver: offers the tiers that *do* have
-  /// cars nearby, re-booking on tap.
-  void _showNoDriver(BuildContext context, WidgetRef ref, BookingState booking,
-      RideTier chosen, List<RideTier> tiers,
-      Map<String, TierAvailability> avail) {
-    final alternatives = tiers
-        .where((t) => t.id != chosen.id && (avail[t.id]?.available ?? false))
-        .toList();
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: EvcColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('No ${chosen.name} available right now',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text(
-                  alternatives.isEmpty
-                      ? 'No other EVs are available nearby either — please try again shortly.'
-                      : 'Try one of these instead:',
-                  style: const TextStyle(color: EvcColors.slate)),
-              const SizedBox(height: 12),
-              for (final alt in alternatives)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: EvcColors.mist,
-                    child: Icon(alt.icon, color: EvcColors.ink),
-                  ),
-                  title: Text(alt.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(avail[alt.id]?.etaMin == null
-                      ? 'Available nearby'
-                      : '${avail[alt.id]!.etaMin} min away'),
-                  trailing: Text('AED ${alt.fareAed.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  onTap: () {
-                    ref.read(bookingControllerProvider.notifier).setTier(alt);
-                    Navigator.of(sheetContext).pop();
-                    _confirm(context, ref, booking, alt, tiers, avail);
-                  },
-                ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  child: Text(alternatives.isEmpty ? 'OK' : 'Cancel'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _pickPayment(BuildContext context, WidgetRef ref) {

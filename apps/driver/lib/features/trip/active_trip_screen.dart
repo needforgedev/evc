@@ -52,6 +52,8 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       final done = await EvcTrips.completeTrip(trip.id);
       ref.invalidate(driverEarningsProvider);
       ref.invalidate(currentDriverProvider);
+      // Now free — pick up any request that was waiting for an available car.
+      await EvcTrips.requeueWaiting();
       if (mounted) setState(() => _completed = done);
     } catch (e) {
       if (mounted) {
@@ -126,6 +128,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                     busy: _busy,
                     onAccept: () => _run(() => EvcTrips.acceptRide(job.id)),
                     onDecline: () => _run(() => EvcTrips.declineRide(job.id)),
+                    onTimeout: () => _run(() => EvcTrips.passRide(job.id)),
                   )
                 : _DrivePanel(
                     trip: job,
@@ -227,19 +230,23 @@ class _RiderLine extends ConsumerWidget {
   }
 }
 
-/// Incoming offer with a 15s countdown that auto-declines.
+/// Incoming offer with a 30s countdown. Letting it lapse is a *soft pass*
+/// ([onTimeout]) — the request rolls to the next driver but can come back to
+/// this one on a later round; tapping Decline is a *hard no* ([onDecline]).
 class _OfferCard extends StatefulWidget {
   const _OfferCard({
     required this.trip,
     required this.busy,
     required this.onAccept,
     required this.onDecline,
+    required this.onTimeout,
   });
 
   final ActiveTrip trip;
   final bool busy;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+  final VoidCallback onTimeout;
 
   @override
   State<_OfferCard> createState() => _OfferCardState();
@@ -257,8 +264,16 @@ class _OfferCardState extends State<_OfferCard> {
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _remaining--);
-      if (_remaining <= 0) _decline();
+      if (_remaining <= 0) _timeout();
     });
+  }
+
+  /// Window lapsed with no action → soft pass (re-offerable next round).
+  void _timeout() {
+    if (_acted) return;
+    _acted = true;
+    _timer?.cancel();
+    widget.onTimeout();
   }
 
   /// Stop the countdown the instant the driver acts, so the auto-decline can't

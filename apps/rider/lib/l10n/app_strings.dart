@@ -156,9 +156,9 @@ class AppStrings {
     'meetAtPickup': 'Meet your driver at the pickup point.',
     'onTheWayToYou': 'On the way to you.',
     'creatingTrip': 'Creating your trip…',
-    'noDriverFound': 'No driver available right now',
+    'noDriverFound': 'Still looking for a nearby EV',
     'noDriverFoundBody':
-        'We couldn’t find a nearby EV for this ride. Try another tier or try again shortly.',
+        'No EV has matched yet. You can keep waiting — we’ll connect you as soon as one is free — or choose another option.',
     'chooseAnotherOption': 'Choose another option',
     'onYourWay': 'On your way',
     'subtotal': 'Subtotal',
@@ -233,9 +233,9 @@ class AppStrings {
     'meetAtPickup': 'قابل سائقك في نقطة الانطلاق.',
     'onTheWayToYou': 'في الطريق إليك.',
     'creatingTrip': 'جارٍ إنشاء رحلتك…',
-    'noDriverFound': 'لا يوجد سائق متاح حالياً',
+    'noDriverFound': 'ما زلنا نبحث عن سيارة كهربائية قريبة',
     'noDriverFoundBody':
-        'لم نتمكن من إيجاد سيارة كهربائية قريبة لهذه الرحلة. جرّب فئة أخرى أو حاول مرة أخرى بعد قليل.',
+        'لم تتم مطابقة أي سيارة بعد. يمكنك الانتظار — سنوصلك حالما تتوفر سيارة — أو اختيار خيار آخر.',
     'chooseAnotherOption': 'اختر خياراً آخر',
     'onYourWay': 'في طريقك',
     'subtotal': 'المجموع الفرعي',

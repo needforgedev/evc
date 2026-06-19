@@ -125,6 +125,20 @@ abstract final class EvcTrips {
   static Future<void> declineRide(String id) =>
       EvcSupabase.client.rpc('decline_ride', params: {'p_trip': id});
 
+  /// Soft pass (the 30s offer timeout) — re-dispatches but lets this driver be
+  /// re-offered the trip on a later round (unlike a hard [declineRide]).
+  static Future<void> passRide(String id) =>
+      EvcSupabase.client.rpc('pass_ride', params: {'p_trip': id});
+
+  /// Re-attempt matching for waiting (unmatched) trips — called when the driver
+  /// pool changes (a driver goes online or finishes a trip) so a queued request
+  /// gets picked up as soon as a car becomes available.
+  static Future<void> requeueWaiting() async {
+    try {
+      await EvcSupabase.client.rpc('requeue_waiting_trips');
+    } catch (_) {/* best-effort; dispatch also fires on request/decline */}
+  }
+
   /// Advance to `arrived` or `ongoing`.
   static Future<ActiveTrip> advanceTrip(String id, LiveTripStatus to) async {
     final r = await EvcSupabase.client

@@ -124,6 +124,8 @@ abstract final class DriverActions {
       final me = await EvcLocation.current();
       await client.rpc('driver_update_location',
           params: {'p_lat': me.latitude, 'p_lng': me.longitude});
+      // A newly-online driver may be the match a queued request was waiting for.
+      await EvcTrips.requeueWaiting();
     }
   }
 
