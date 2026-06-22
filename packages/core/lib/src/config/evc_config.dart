@@ -33,4 +33,10 @@ abstract final class EvcConfig {
   /// Dart-side copy is used for the HTTP Places/Directions calls (later slices).
   static const String gmapsApiKey =
       String.fromEnvironment('GMAPS_API_KEY', defaultValue: '');
+
+  /// Dev: stream a *simulated* driver path along the active trip instead of real
+  /// device GPS, so the live driver dot can be demoed from a simulator outside
+  /// the UAE. Set `--dart-define=SIMULATE_DRIVER_GPS=false` on a real UAE device.
+  static const bool simulateDriverGps =
+      bool.fromEnvironment('SIMULATE_DRIVER_GPS', defaultValue: true);
 }

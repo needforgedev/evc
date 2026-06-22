@@ -11,6 +11,7 @@ import '../../l10n/app_strings.dart';
 import '../../state/active_trip_provider.dart';
 import '../../state/assigned_driver_provider.dart';
 import '../../state/booking_controller.dart';
+import '../../state/driver_location_provider.dart';
 import '../../state/route_provider.dart';
 
 /// Live trip screen driven by the real `trips` row (Realtime).
@@ -127,6 +128,11 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
             .value;
     final routePts = road?.points ?? const <LatLng>[];
 
+    // The driver's real (or simulated) live position, streamed via Realtime.
+    final live = trip?.driverId == null
+        ? null
+        : ref.watch(driverLocationProvider(trip!.driverId!)).value;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -136,6 +142,13 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
               builder: (_, _) {
                 final progress =
                     status == LiveTripStatus.ongoing ? _car.value : carProgress;
+                // Prefer the driver's real/simulated live position; fall back to
+                // the status-based animation until the first fix arrives.
+                final LatLng? carPos = live != null
+                    ? LatLng(live.lat, live.lng)
+                    : (progress != null && routePts.length >= 2
+                        ? pointAlong(routePts, progress)
+                        : null);
                 return EvcGoogleMap(
                   center: LatLng(booking.pickup.lat, booking.pickup.lng),
                   route: routePts,
@@ -152,10 +165,10 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
                           position: LatLng(dest.lat, dest.lng),
                           title: dest.name,
                           hue: EvcMarkerHue.red),
-                    if (progress != null && routePts.length >= 2)
+                    if (carPos != null)
                       EvcMarker(
                           id: 'car',
-                          position: pointAlong(routePts, progress),
+                          position: carPos,
                           title: 'EV',
                           hue: EvcMarkerHue.azure),
                   ],

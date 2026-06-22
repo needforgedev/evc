@@ -10,6 +10,20 @@ class PromoResult {
   final String? description;
 }
 
+/// A driver's live position (from the `driver_locations` Realtime stream).
+class LivePosition {
+  const LivePosition({required this.lat, required this.lng, this.heading});
+  final double lat;
+  final double lng;
+  final double? heading;
+
+  factory LivePosition.fromRow(Map<String, dynamic> r) => LivePosition(
+        lat: (r['lat'] as num).toDouble(),
+        lng: (r['lng'] as num).toDouble(),
+        heading: (r['heading'] as num?)?.toDouble(),
+      );
+}
+
 /// Per-tier driver availability near a pickup (from `nearby_tiers`).
 class TierAvailability {
   const TierAvailability({
@@ -99,6 +113,22 @@ abstract final class EvcTrips {
   static Future<void> cancel(String id, {String reason = 'Rider canceled'}) =>
       EvcSupabase.client
           .rpc('cancel_trip', params: {'p_trip': id, 'p_reason': reason});
+
+  /// Live position of [driverId] (Realtime). The rider may read their assigned
+  /// driver's row while the trip is active (RLS-scoped).
+  static Stream<LivePosition?> driverLocationStream(String driverId) {
+    return EvcSupabase.client
+        .from('driver_locations')
+        .stream(primaryKey: ['driver_id'])
+        .eq('driver_id', driverId)
+        .map((rows) => rows.isEmpty ? null : LivePosition.fromRow(rows.first));
+  }
+
+  /// Driver publishes their current position (writes `driver_locations`).
+  static Future<void> publishLocation(double lat, double lng,
+          {double? heading}) =>
+      EvcSupabase.client.rpc('driver_update_location',
+          params: {'p_lat': lat, 'p_lng': lng, 'p_heading': heading});
 
   // ── Driver side ────────────────────────────────────────────
   /// The driver's current active job (matched → ongoing), or null. Realtime.

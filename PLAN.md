@@ -60,7 +60,7 @@ These shape everything downstream — record the final call and date.
 ### 0.2 Shared packages
 - [x] `packages/core` — domain models + Supabase client (`EvcSupabase`) + dev-OTP auth (`EvcDevAuth`) + Rider/Driver registration
 - [x] `packages/ui_kit` — theme, colors, typography, base widgets, `Co2Badge`
-- [~] `packages/maps` — `PlaceholderMap` (mock) **+ real Google Maps** (`EvcGoogleMap`/`EvcMarker`) behind the provider abstraction, plus `EvcLocation` (device GPS with a UAE service-region fallback for dev-from-India) and `EvcDirections` (real route polyline + road distance/drive-time). **Live on Driver + Rider home (Slice 1)** + **real route on Rider booking/live-trip + Driver active-trip (Slice 3 — Directions)** ✅ verified; **real Places autocomplete on destination search (Slice 2 — `EvcPlaces`, Places API New)** ✅ verified; live moving dot (Slice 4) + Admin map TBD
+- [~] `packages/maps` — `PlaceholderMap` (mock) **+ real Google Maps** (`EvcGoogleMap`/`EvcMarker`) behind the provider abstraction, plus `EvcLocation` (device GPS with a UAE service-region fallback for dev-from-India) and `EvcDirections` (real route polyline + road distance/drive-time). **Live on Driver + Rider home (Slice 1)** + **real route on Rider booking/live-trip + Driver active-trip (Slice 3 — Directions)** ✅ verified; **real Places autocomplete on destination search (Slice 2 — `EvcPlaces`, Places API New)** ✅ verified; **live moving driver dot (Slice 4 — `publishLocation`/`driverLocationStream`, real GPS or dev sim)** ✅; Admin live map real-time TBD
 - [~] `packages/realtime` — placeholder; apps use the Supabase client directly for now
 
 ### 0.3 Backend foundation  *(applied to the live Supabase project)*

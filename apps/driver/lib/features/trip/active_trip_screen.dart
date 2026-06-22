@@ -32,6 +32,56 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   bool _busy = false;
   ActiveTrip? _completed; // set once the trip finishes → shows summary
 
+  // Live-location publisher (#8). While driving a trip, push the driver's
+  // position every couple of seconds so the rider sees the car move.
+  Timer? _gpsTimer;
+  LatLng? _simPos;
+
+  @override
+  void dispose() {
+    _gpsTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Start the publisher once a trip is active.
+  void _ensurePublisher() {
+    _gpsTimer ??=
+        Timer.periodic(const Duration(seconds: 2), (_) => _publishTick());
+  }
+
+  Future<void> _publishTick() async {
+    final job = ref.read(driverJobProvider).value;
+    if (job == null) return;
+    const driving = {
+      LiveTripStatus.enroute,
+      LiveTripStatus.arrived,
+      LiveTripStatus.ongoing,
+    };
+    if (!driving.contains(job.status)) return; // only publish while driving
+
+    final pickup = LatLng(job.pickupLat ?? 25.18, job.pickupLng ?? 55.25);
+    final dest = LatLng(job.destLat ?? 25.18, job.destLng ?? 55.25);
+
+    LatLng pos;
+    if (EvcConfig.simulateDriverGps) {
+      // Start a little "behind" the pickup, glide to the pickup while enroute,
+      // then on to the destination once ongoing.
+      _simPos ??= LatLng(pickup.latitude + (pickup.latitude - dest.latitude) * 0.3,
+          pickup.longitude + (pickup.longitude - dest.longitude) * 0.3);
+      final target = job.status == LiveTripStatus.ongoing ? dest : pickup;
+      _simPos = LatLng(
+        _simPos!.latitude + (target.latitude - _simPos!.latitude) * 0.12,
+        _simPos!.longitude + (target.longitude - _simPos!.longitude) * 0.12,
+      );
+      pos = _simPos!;
+    } else {
+      pos = await EvcLocation.current(); // real device GPS (UAE fallback)
+    }
+    try {
+      await EvcTrips.publishLocation(pos.latitude, pos.longitude);
+    } catch (_) {/* best-effort */}
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
     try {
@@ -75,6 +125,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     });
 
     if (_completed != null) {
+      _gpsTimer?.cancel();
       return _SummaryView(trip: _completed!);
     }
 
@@ -82,6 +133,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     if (job == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    _ensurePublisher();
 
     final pLat = job.pickupLat ?? 25.18, pLng = job.pickupLng ?? 55.25;
     final dLat = job.destLat ?? 25.18, dLng = job.destLng ?? 55.25;
