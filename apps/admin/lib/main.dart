@@ -7,10 +7,13 @@ import 'package:evc_ui_kit/evc_ui_kit.dart';
 import 'features/auth/login_screen.dart';
 import 'features/shell/main_shell.dart';
 import 'l10n/app_strings.dart';
+import 'maps_loader.dart';
 import 'state/locale_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Web only: load the Google Maps JS API so the live map renders in the browser.
+  await loadGoogleMapsJs(EvcConfig.gmapsApiKey);
   await EvcSupabase.init(); // no-op until SUPABASE_URL/ANON_KEY are provided
   runApp(const ProviderScope(child: EvcAdminApp()));
 }

@@ -60,7 +60,7 @@ These shape everything downstream — record the final call and date.
 ### 0.2 Shared packages
 - [x] `packages/core` — domain models + Supabase client (`EvcSupabase`) + dev-OTP auth (`EvcDevAuth`) + Rider/Driver registration
 - [x] `packages/ui_kit` — theme, colors, typography, base widgets, `Co2Badge`
-- [~] `packages/maps` — `PlaceholderMap` (mock) **+ real Google Maps** (`EvcGoogleMap`/`EvcMarker`) behind the provider abstraction, plus `EvcLocation` (device GPS with a UAE service-region fallback for dev-from-India) and `EvcDirections` (real route polyline + road distance/drive-time). **Live on Driver + Rider home (Slice 1)** + **real route on Rider booking/live-trip + Driver active-trip (Slice 3 — Directions)** ✅ verified; **real Places autocomplete on destination search (Slice 2 — `EvcPlaces`, Places API New)** ✅ verified; **live moving driver dot (Slice 4 — `publishLocation`/`driverLocationStream`, real GPS or dev sim)** ✅; Admin live map real-time TBD
+- [~] `packages/maps` — `PlaceholderMap` (mock) **+ real Google Maps** (`EvcGoogleMap`/`EvcMarker`) behind the provider abstraction, plus `EvcLocation` (device GPS with a UAE service-region fallback for dev-from-India) and `EvcDirections` (real route polyline + road distance/drive-time). **Live on Driver + Rider home (Slice 1)** + **real route on Rider booking/live-trip + Driver active-trip (Slice 3 — Directions)** ✅ verified; **real Places autocomplete on destination search (Slice 2 — `EvcPlaces`, Places API New)** ✅ verified; **live moving driver dot (Slice 4 — `publishLocation`/`driverLocationStream`, real GPS or dev sim)** ✅; **Admin live map** real Google map + Realtime `driver_locations` dots ✅
 - [~] `packages/realtime` — placeholder; apps use the Supabase client directly for now
 
 ### 0.3 Backend foundation  *(applied to the live Supabase project)*
@@ -148,7 +148,7 @@ These shape everything downstream — record the final call and date.
 - [x] Admin auth + RBAC — **real** email/password login + **role guard** (non-admins rejected); admins provisioned in Supabase dashboard; RLS enforces scope
 - [x] Driver approval queue — **real**; **view uploaded documents** (signed URLs) + per-doc Approve/Reject; account approve/suspend via `admin_set_driver_status`
 - [~] User management — *drivers real; rider management TBD*
-- [x] Live ops map — **real** fleet markers (`driver_locations`) + **real ongoing trips** as they happen; demand hotspots still illustrative
+- [x] Live ops map — **real Google map** + **realtime** driver dots (`driver_locations` stream; move live as drivers publish, azure = on-trip / green = available) + **real ongoing trips**; demand hotspots dropped (were illustrative)
 - [x] Trip inspection + intervention — **real** trips (live); **cancel** via `cancel_trip` RPC (reassign/refund still stubs)
 - [x] **Compliance queue** — **real** (More → Compliance): drivers with documents expiring (60/30/14/7) or **expired**, most-urgent first, fed by `compliance_alerts`
 - [x] Support/dispute view — **real** `support_tickets`

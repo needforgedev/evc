@@ -236,6 +236,50 @@ final adminLiveProvider = FutureProvider<List<FleetVehicle>>((ref) async {
   ];
 });
 
+// ───────────────────── live map (realtime) ─────────────────
+/// A driver's live dot on the ops map.
+class AdminDriverDot {
+  const AdminDriverDot({
+    required this.driverId,
+    required this.lat,
+    required this.lng,
+    required this.onTrip,
+  });
+  final String driverId;
+  final double lat;
+  final double lng;
+  final bool onTrip; // is_available == false → currently on a ride
+}
+
+/// Realtime stream of driver positions (`driver_locations`) for the ops map —
+/// markers move live as drivers publish (see live-dot #8). Drops (0,0) seeds and
+/// stale rows (not updated in ~30 min) so the map shows active drivers only.
+final adminFleetLiveProvider = StreamProvider<List<AdminDriverDot>>((ref) {
+  if (!EvcSupabase.isReady) return Stream.value(const []);
+  return EvcSupabase.client
+      .from('driver_locations')
+      .stream(primaryKey: ['driver_id']).map((rows) {
+    final out = <AdminDriverDot>[];
+    for (final l in rows) {
+      final lat = (l['lat'] as num?)?.toDouble();
+      final lng = (l['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null || (lat == 0 && lng == 0)) continue;
+      final updated = DateTime.tryParse(l['updated_at']?.toString() ?? '');
+      if (updated != null &&
+          DateTime.now().difference(updated) > const Duration(minutes: 30)) {
+        continue;
+      }
+      out.add(AdminDriverDot(
+        driverId: l['driver_id'] as String,
+        lat: lat,
+        lng: lng,
+        onTrip: (l['is_available'] as bool?) == false,
+      ));
+    }
+    return out;
+  });
+});
+
 // ───────────────────────── support ─────────────────────────
 final adminTicketsProvider = FutureProvider<List<SupportTicket>>((ref) async {
   if (!EvcSupabase.isReady) return const [];

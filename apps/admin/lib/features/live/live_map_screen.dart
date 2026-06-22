@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
+import 'package:evc_maps/evc_maps.dart';
 import 'package:evc_ui_kit/evc_ui_kit.dart';
 
-import '../../mock/admin_mock.dart';
 import '../../state/admin_data.dart';
-import '../../widgets/ops_map.dart';
 import '../trips/trip_detail_screen.dart';
 import '../trips/trips_screen.dart' show shortId;
 
-/// Live operations map — real fleet markers + ongoing trips.
+/// Live operations map — realtime driver dots (move as drivers publish) +
+/// ongoing trips.
 class LiveMapScreen extends ConsumerWidget {
   const LiveMapScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final live = ref.watch(adminLiveProvider).value ?? const [];
+    final dots = ref.watch(adminFleetLiveProvider).value ?? const [];
+    final onTripCount = dots.where((d) => d.onTrip).length;
     final ongoing = (ref.watch(adminTripsProvider).value ?? const [])
         .where((t) => t.status == AdminTripStatus.ongoing)
         .toList();
@@ -24,7 +25,19 @@ class LiveMapScreen extends ConsumerWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: OpsMap(fleet: live, hotspots: AdminMock.hotspots),
+            child: EvcGoogleMap(
+              center: kDubaiCenter,
+              zoom: 12,
+              markers: [
+                for (final d in dots)
+                  EvcMarker(
+                    id: d.driverId,
+                    position: LatLng(d.lat, d.lng),
+                    title: d.onTrip ? 'On a trip' : 'Available',
+                    hue: d.onTrip ? EvcMarkerHue.azure : EvcMarkerHue.green,
+                  ),
+              ],
+            ),
           ),
           SafeArea(
             child: Padding(
@@ -44,7 +57,8 @@ class LiveMapScreen extends ConsumerWidget {
                             offset: Offset(0, 2)),
                       ],
                     ),
-                    child: Text('${live.length} drivers online',
+                    child: Text(
+                        '${dots.length} active · $onTripCount on a trip',
                         style: const TextStyle(fontWeight: FontWeight.w800)),
                   ),
                   const Spacer(),
@@ -54,10 +68,7 @@ class LiveMapScreen extends ConsumerWidget {
                     elevation: 2,
                     child: IconButton(
                       icon: const Icon(Icons.refresh),
-                      onPressed: () {
-                        ref.invalidate(adminLiveProvider);
-                        ref.invalidate(adminTripsProvider);
-                      },
+                      onPressed: () => ref.invalidate(adminTripsProvider),
                     ),
                   ),
                 ],
