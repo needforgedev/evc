@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:evc_core/evc_core.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
 
 import 'evc_location.dart';
 
@@ -27,48 +25,44 @@ class EvcRoute {
   final bool isReal;
 }
 
-/// Google Directions wrapper. Returns a real road route when the key + Directions
-/// API are available, and a graceful straight-line fallback otherwise so the map
-/// always has something to draw.
+/// Google Directions wrapper. Returns a real road route when available, and a
+/// graceful straight-line fallback otherwise so the map always has something to
+/// draw.
 ///
-/// Dev note: this calls the Directions web service directly with the dart-define
-/// key. For production, proxy it through a Supabase edge function so the key
-/// isn't shipped in the client.
+/// Routes through the `maps-proxy` Supabase edge function so the Google key
+/// stays server-side (PRD #5) — never shipped in the client.
 class EvcDirections {
   const EvcDirections._();
 
   static Future<EvcRoute> route(LatLng origin, LatLng destination) async {
-    final key = EvcConfig.gmapsApiKey;
     final straight = _straightLine(origin, destination);
-    if (key.isEmpty) return straight;
-
-    final uri = Uri.https('maps.googleapis.com', '/maps/api/directions/json', {
-      'origin': '${origin.latitude},${origin.longitude}',
-      'destination': '${destination.latitude},${destination.longitude}',
-      'mode': 'driving',
-      'key': key,
-    });
+    if (!EvcSupabase.isReady) return straight;
 
     try {
-      final res = await http.get(uri).timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return straight;
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final res = await EvcSupabase.client.functions.invoke('maps-proxy', body: {
+        'op': 'directions',
+        'origin': {'lat': origin.latitude, 'lng': origin.longitude},
+        'destination': {'lat': destination.latitude, 'lng': destination.longitude},
+      });
+      final data = res.data as Map<String, dynamic>?;
+      final gStatus = (data?['status'] as num?)?.toInt() ?? 0;
+      final body = data?['body'] as Map<String, dynamic>?;
+      if (gStatus != 200 || body == null) return straight;
+      // Routes API (New) shape: routes[].distanceMeters / duration ("123s") /
+      // polyline.encodedPolyline.
       final routes = body['routes'] as List<dynamic>?;
-      if (body['status'] != 'OK' || routes == null || routes.isEmpty) {
-        return straight;
-      }
+      if (routes == null || routes.isEmpty) return straight;
       final r0 = routes.first as Map<String, dynamic>;
-      final overview = (r0['overview_polyline'] as Map<String, dynamic>?)?['points'] as String?;
-      final legs = r0['legs'] as List<dynamic>?;
-      final leg0 = (legs != null && legs.isNotEmpty)
-          ? legs.first as Map<String, dynamic>
-          : null;
-      final meters = (leg0?['distance'] as Map<String, dynamic>?)?['value'] as num?;
-      final seconds = (leg0?['duration'] as Map<String, dynamic>?)?['value'] as num?;
+      final meters = (r0['distanceMeters'] as num?)?.toDouble();
+      final durStr = r0['duration'] as String?; // e.g. "1234s"
+      final seconds =
+          durStr == null ? null : int.tryParse(durStr.replaceAll('s', ''));
+      final encoded =
+          (r0['polyline'] as Map<String, dynamic>?)?['encodedPolyline'] as String?;
 
-      final pts = overview == null || overview.isEmpty
+      final pts = encoded == null || encoded.isEmpty
           ? [origin, destination]
-          : decodePolyline(overview);
+          : decodePolyline(encoded);
       return EvcRoute(
         points: pts,
         distanceKm: meters == null ? straight.distanceKm : meters / 1000.0,

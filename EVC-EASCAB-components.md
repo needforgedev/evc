@@ -28,7 +28,7 @@
 | 2 | Audit Engine | 🟡 | `trip_events` (status change + actor + time), doc-review trail (`reviewed_by`) | platform-wide **immutable append-only** log |
 | 3 | Regional Config | 🟡 | `pricing` + `ride_tiers` (rates served from DB, not hardcoded) | currency/tax/phone/language/region still hardcoded; no global↔regional tiers |
 | 4 | Notification | 🟡 | WhatsApp OTP delivery (edge fn) | push (FCM/APNs), in-app, SMS fallback, SOS priority |
-| 5 | API Puzzle (gateway) | ⬜ | — (edge fn calls Vonage directly) | single mediated external-call gateway |
+| 5 | API Puzzle (gateway) | 🟡 | **`maps-proxy` edge function** mediates Google Places/Routes (key server-side) | universal gateway for *all* externals (Vonage OTP still direct); Kong rate-limit / anti-cascade |
 | 6 | FAKKA / payments | 🟡 | `payments` recorded (amount/VAT/tip/**discount**), method selector | real gateway **capture**, instruction queue, idempotency |
 | 7 | **Marketplace (match/dispatch)** | ✅ | `request_ride` → `dispatch_trip` (**range- + tier-aware**, nearest) → offer → accept/decline → full trip lifecycle, realtime | universal multi-use-case (CS / charging-slot), batched optimization |
 | 8 | Asset Pool | 🟡 | `vehicles` (model/plate/battery/range/status/**tier**/ownership), `charging_stations` (DEWA), charging status | doc-expiry, maintenance state, soft-delete, utilization |
@@ -49,10 +49,10 @@
 ## Tally
 
 - ✅ **Done: 1** — #7 Marketplace (the ride match / dispatch engine, fully working).
-- 🟡 **Partial: 11** — #1 Auth, #2 Audit, #3 Regional Config, #4 Notification, #6 Payments,
-  #8 Asset Pool, #9 Human Pool, #11 Financial Tx, #12 Report, #13 Mathematics Room, #15 Compliance,
-  **#19 Language (EN/AR + RTL, all 3 apps)**.
-- ⬜ **Not started: 8** — #0 Registry, #5 API Puzzle, #10 Contract, #14 AI, #16 Config Wizard,
+- 🟡 **Partial: 13** — #1 Auth, #2 Audit, #3 Regional Config, #4 Notification, **#5 API Puzzle
+  (`maps-proxy` gateway)**, #6 Payments, #8 Asset Pool, #9 Human Pool, #11 Financial Tx, #12 Report,
+  #13 Mathematics Room, #15 Compliance, **#19 Language (EN/AR + RTL, all 3 apps)**.
+- ⬜ **Not started: 6** — #0 Registry, #10 Contract, #14 AI, #16 Config Wizard,
   #17 Feature Builder, #18 Update Intelligence *(and #0 is infra-only)*.
 
 ---
@@ -119,6 +119,7 @@ Every EVC change is tracked here against the PRD requirement it serves
 | Destination search — Google Places autocomplete | **RID-01** | ✅ **verified** — real type-ahead via **Places API (New)** (`EvcPlaces`, UAE-restricted, Dubai-biased, session-token) → real lat/lng into pricing/dispatch/route; surfaces API errors in-UI; graceful local fallback if Places API off |
 | Driver accept robustness (`accept_ride` idempotent + clear messages) | MAT-* | ➕ ✅ **verified** — fixes "not assigned" P0001 on the 15s offer-expiry race; accept cancels the auto-decline timer (window 15→30s), idempotent on double-tap, friendly expiry/reassign messages |
 | No-availability handling — dispatch radius + per-tier availability + graceful no-match | **MAT / RID-02** | ➕ **#3** `dispatch_trip` enforces a `pricing.dispatch_radius_km` (10 km) cap · **#1** `nearby_tiers()` RPC → booking shows per-tier "N min away" / greys out empty tiers / default-picks an available one · **#2** request returns `no_driver` → orphan canceled + **alternatives sheet** (other available tiers, re-book on tap) + 45s search-timeout panel on the live screen (no more infinite "Finding your EV…") · driver go-online + rider pickup now use real `EvcLocation` (radius works with true positions) |
+| **maps-proxy edge function** — Places/Routes behind a server gateway | **#5 API Puzzle Engine** | ✅ key moved to `GMAPS_API_KEY` server secret; `EvcPlaces`/`EvcDirections` → `functions.invoke('maps-proxy')`; Places New verified live, Routes New pending the *Routes API* toggle (app falls back to straight-line until enabled). App-scale realization of #5; full Kong/container split = EASCAB phase |
 | Persistent declined-set (dispatch #4) | MAT | ➕ `trips.declined_by uuid[]`; every decline appends the driver, `dispatch_trip` excludes the whole set → fixes the A→B→A re-offer ping-pong (a driver is never re-offered a trip they declined) |
 | Round-robin dispatch — timeout vs decline (dispatch #4 / Phase 1) | MAT | ➕ **decline = hard** (`declined_by`, never re-offered) vs **30s timeout = soft pass** (`pass_ride` → `passed_by`, re-offered next round). Request circulates A→B→C…; when all eligible have declined/passed, `passed_by` clears for another round — **capped at 2 rounds**, then no-driver. Phase 2 (server-authoritative offer expiry + push) deferred — today the 30s clock is client-side (foreground only) |
 | No-match requeue (dispatch #5) | MAT | ➕ `requeue_waiting_trips()` re-dispatches recent `requested` trips; driver app calls it on **go-online** (after real location) and **trip-complete** (freed) → a queued request matches as soon as a car appears. **Flow change:** booking no longer cancels on no-match — it **queues and waits** on the live screen (requeue fills it); any tier is requestable (empty ones queue); live-screen timeout copy is now non-destructive ("still looking — keep waiting or choose another"). Supersedes #2's immediate-cancel + alternatives sheet |
@@ -147,7 +148,7 @@ these are **deliberate choices, not deficits**: read them as "N/A for a monolith
 | # | EASCAB component | What it really is | EVC equivalent |
 |---|---|---|---|
 | 0 | Registry | Kubernetes + etcd orchestration, component registry, Deployment Manager, four-eyes governance | **Managed Supabase** is the runtime — no orchestration layer to build |
-| 5 | API Puzzle Engine | Kong as the single gateway mediating *all* external calls (rate-limit, anti-cascade) | Edge functions call externals (Vonage) directly; Supabase is the implicit gateway |
+| 5 | API Puzzle Engine | Kong as the single gateway mediating *all* external calls (rate-limit, anti-cascade) | **Partly built (🟡):** `maps-proxy` edge fn mediates Google Places/Routes (key server-side); Vonage OTP still direct; no Kong rate-limit/anti-cascade layer |
 | 18 | Update Intelligence | Renovate + AI risk-scoring + sequential multi-region deploy with rollback | Manual `pub` / `melos` dependency management |
 
 ### Cross-cutting architectural attributes (span *every* component)
@@ -163,9 +164,11 @@ these are **deliberate choices, not deficits**: read them as "N/A for a monolith
 - **"Universal template"** abstraction (one Marketplace / Asset / Human / Contract / Report engine
   instantiated per use-case via config) → EVC: purpose-built ride-hailing implementations.
 
-> **Net:** of the 20, the **architecture-only** components are exactly **#0, #5, #18**. Everything
-> else on the scorecard is a **functional** capability (present, partial, or missing) — those are
-> the real build items; the architecture-only ones are infra/ops decisions, not product features.
+> **Net:** of the 20, the **architecture-only** components are now **#0 and #18** (#5's *functional*
+> half — a mediated external-call gateway — is built via `maps-proxy`; only its Kong rate-limit /
+> anti-cascade layer remains architecture). Everything else on the scorecard is a **functional**
+> capability (present, partial, or missing) — those are the real build items; the architecture-only
+> ones are infra/ops decisions, not product features.
 
 ### Containerization / Docker — decision on record (2026-06-17)
 
@@ -187,15 +190,19 @@ Kubernetes/etcd/Kong**. EVC's backend is **managed Supabase** (Postgres + Auth +
 → **Docker is therefore neither a gap nor a to-do.** Revisit only if/when the EASCAB multi-region
 platform track is reopened.
 
-### Live external-API calls — flag to revisit before production
+### Live external-API calls — ✅ proxied via edge function (2026-06-22)
 
-Recent map work (Slices 1–3) calls **Google Places / Directions directly from the client**
-([`evc_places.dart`](packages/maps/lib/src/evc_places.dart),
-[`evc_directions.dart`](packages/maps/lib/src/evc_directions.dart)) with the dart-define key. This
-is the **opposite** of the Brief's **#5 API Puzzle Engine** principle (*"no component calls an
-external API directly"*). Acceptable for dev; **before production, proxy these through a Supabase
-edge function** (mediated gateway + hides the key + central rate-limit) to align with #5. Tracked
-here so it isn't forgotten.
+Google **Places (New)** + **Routes (New)** are now routed through the **`maps-proxy` Supabase edge
+function** ([`supabase/functions/maps-proxy/index.ts`](supabase/functions/maps-proxy/index.ts)) — the
+key lives in the `GMAPS_API_KEY` **server secret**, not the client. `EvcPlaces`/`EvcDirections` call
+`functions.invoke('maps-proxy', …)`. This realizes the Brief's **#5 API Puzzle Engine** principle
+("no component calls an external API directly") at app scale, without running our own container
+(Supabase manages the function). Per the earlier Docker decision, this is the right first step; the
+real Kong/container split stays an EASCAB-phase item.
+
+**Still client-side (unavoidable):** the **map-tile rendering key** (native SDK / web JS) — on web a
+Maps key is inherently visible in the browser, so it's *referrer/bundle-restricted*, never secret.
+Only the HTTP calls (Places/Routes) are proxyable, and now are.
 
 ---
 

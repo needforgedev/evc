@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:evc_core/evc_core.dart';
-import 'package:http/http.dart' as http;
 
 /// One Google Places autocomplete suggestion.
 class EvcPlacePrediction {
@@ -21,70 +18,46 @@ class EvcPlacePrediction {
 }
 
 /// Autocomplete result: the suggestions plus an optional human-readable error
-/// (e.g. "Places API (New) has not been enabled…") so the UI can explain why
-/// live search returned nothing instead of silently showing "No places found".
+/// so the UI can explain why live search returned nothing.
 class EvcAutocompleteResult {
   const EvcAutocompleteResult(this.items, {this.error});
   final List<EvcPlacePrediction> items;
   final String? error;
 }
 
-/// Google **Places API (New)** wrapper: type-ahead suggestions + resolving a
-/// pick to real coordinates. Restricted to the UAE and biased toward Dubai.
+/// Google **Places (New)** wrapper: type-ahead suggestions + resolving a pick to
+/// real coordinates (UAE-restricted, Dubai-biased).
 ///
-/// Uses the `places.googleapis.com/v1` endpoints with an `X-Goog-Api-Key`
-/// header (the current API; the legacy `maps/api/place/*` endpoints are not
-/// enableable on most newly-created keys).
-///
-/// Dev note: calls the web service directly with the dart-define key. For
-/// production, proxy through a Supabase edge function so the key isn't shipped.
+/// Routes through the `maps-proxy` Supabase edge function so the Google key
+/// stays server-side (PRD #5) — never shipped in the client.
 class EvcPlaces {
   const EvcPlaces._();
-
-  static const double _biasLat = 25.2048;
-  static const double _biasLng = 55.2708;
 
   static Future<EvcAutocompleteResult> autocomplete(
     String input, {
     String? sessionToken,
   }) async {
-    final key = EvcConfig.gmapsApiKey;
-    if (key.isEmpty) {
-      return const EvcAutocompleteResult([],
-          error: 'No Maps API key configured.');
-    }
     if (input.trim().length < 2) return const EvcAutocompleteResult([]);
-
-    final uri = Uri.https('places.googleapis.com', '/v1/places:autocomplete');
-    final body = jsonEncode({
-      'input': input.trim(),
-      'includedRegionCodes': ['ae'],
-      'locationBias': {
-        'circle': {
-          'center': {'latitude': _biasLat, 'longitude': _biasLng},
-          'radius': 50000.0,
-        }
-      },
-      'sessionToken': ?sessionToken,
-    });
+    if (!EvcSupabase.isReady) {
+      return const EvcAutocompleteResult([], error: 'Backend not configured.');
+    }
 
     try {
-      final res = await http
-          .post(uri,
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Goog-Api-Key': key,
-              },
-              body: body)
-          .timeout(const Duration(seconds: 8));
-      final json = jsonDecode(res.body) as Map<String, dynamic>;
-      if (res.statusCode != 200) {
-        final msg =
-            (json['error'] as Map<String, dynamic>?)?['message'] as String?;
+      final res = await EvcSupabase.client.functions.invoke('maps-proxy', body: {
+        'op': 'autocomplete',
+        'input': input.trim(),
+        'sessionToken': sessionToken,
+      });
+      final data = res.data as Map<String, dynamic>?;
+      final gStatus = (data?['status'] as num?)?.toInt() ?? 0;
+      final body = data?['body'] as Map<String, dynamic>?;
+      if (gStatus != 200 || body == null) {
+        final msg = (body?['error'] as Map<String, dynamic>?)?['message'] as String?;
         return EvcAutocompleteResult(const [],
-            error: msg ?? 'Places error ${res.statusCode}');
+            error: msg ?? 'Places error $gStatus');
       }
-      final sugg = json['suggestions'] as List<dynamic>? ?? const [];
+
+      final sugg = body['suggestions'] as List<dynamic>? ?? const [];
       final items = <EvcPlacePrediction>[];
       for (final raw in sugg) {
         final pp = (raw as Map<String, dynamic>)['placePrediction']
@@ -111,27 +84,25 @@ class EvcPlaces {
 
   /// Resolve a prediction's [placeId] to a full [Place] with real coordinates.
   static Future<Place?> details(String placeId, {String? sessionToken}) async {
-    final key = EvcConfig.gmapsApiKey;
-    if (key.isEmpty || placeId.isEmpty) return null;
-
-    final uri = Uri.https('places.googleapis.com', '/v1/places/$placeId', {
-      'sessionToken': ?sessionToken,
-    });
+    if (placeId.isEmpty || !EvcSupabase.isReady) return null;
 
     try {
-      final res = await http.get(uri, headers: {
-        'X-Goog-Api-Key': key,
-        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location',
-      }).timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return null;
-      final json = jsonDecode(res.body) as Map<String, dynamic>;
-      final loc = json['location'] as Map<String, dynamic>?;
+      final res = await EvcSupabase.client.functions.invoke('maps-proxy', body: {
+        'op': 'details',
+        'placeId': placeId,
+        'sessionToken': sessionToken,
+      });
+      final data = res.data as Map<String, dynamic>?;
+      final gStatus = (data?['status'] as num?)?.toInt() ?? 0;
+      final body = data?['body'] as Map<String, dynamic>?;
+      if (gStatus != 200 || body == null) return null;
+      final loc = body['location'] as Map<String, dynamic>?;
       if (loc == null) return null;
       return Place(
-        name: (json['displayName'] as Map<String, dynamic>?)?['text']
+        name: (body['displayName'] as Map<String, dynamic>?)?['text']
                 as String? ??
             'Destination',
-        address: json['formattedAddress'] as String? ?? '',
+        address: body['formattedAddress'] as String? ?? '',
         kind: PlaceKind.search,
         lat: (loc['latitude'] as num).toDouble(),
         lng: (loc['longitude'] as num).toDouble(),
