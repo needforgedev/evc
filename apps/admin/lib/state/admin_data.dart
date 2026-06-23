@@ -280,6 +280,58 @@ final adminFleetLiveProvider = StreamProvider<List<AdminDriverDot>>((ref) {
   });
 });
 
+// ───────────────────── stations (ADM-05) ───────────────────
+/// A charging station for the admin management screen.
+class AdminStation {
+  const AdminStation({
+    required this.id,
+    required this.name,
+    required this.network,
+    required this.available,
+    required this.total,
+    required this.powerKw,
+    required this.pricePerKwh,
+  });
+  final String id;
+  final String name;
+  final String network;
+  final int available;
+  final int total;
+  final int powerKw;
+  final double pricePerKwh;
+
+  bool get hasAvailability => available > 0;
+}
+
+/// Realtime stream of charging stations (status + rate update live).
+final adminStationsProvider = StreamProvider<List<AdminStation>>((ref) {
+  if (!EvcSupabase.isReady) return Stream.value(const []);
+  return EvcSupabase.client
+      .from('charging_stations')
+      .stream(primaryKey: ['id']).map((rows) {
+    final list = [
+      for (final r in rows)
+        AdminStation(
+          id: r['id'] as String,
+          name: r['name'] as String,
+          network: (r['network'] as String?) ?? 'DEWA',
+          available: (r['available_stalls'] as num?)?.toInt() ?? 0,
+          total: (r['total_stalls'] as num?)?.toInt() ?? 0,
+          powerKw: (r['power_kw'] as num?)?.toInt() ?? 0,
+          pricePerKwh: (r['price_per_kwh'] as num?)?.toDouble() ?? 0.70,
+        )
+    ]..sort((a, b) => a.name.compareTo(b.name));
+    return list;
+  });
+});
+
+/// Realtime reserve/queue entries (for per-station queue counts).
+final adminChargingQueueProvider =
+    StreamProvider<List<ChargingQueueEntry>>((ref) {
+  if (!EvcSupabase.isReady) return Stream.value(const []);
+  return EvcCharging.queueStream();
+});
+
 // ───────────────────────── support ─────────────────────────
 final adminTicketsProvider = FutureProvider<List<SupportTicket>>((ref) async {
   if (!EvcSupabase.isReady) return const [];

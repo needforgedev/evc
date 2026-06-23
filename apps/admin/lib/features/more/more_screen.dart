@@ -11,6 +11,7 @@ import '../compliance/compliance_screen.dart';
 import '../finance/finance_screen.dart';
 import '../fleet/fleet_screen.dart';
 import '../pricing/pricing_screen.dart';
+import '../stations/station_management_screen.dart';
 import '../support/support_screen.dart';
 
 /// Secondary ops sections.
@@ -75,6 +76,8 @@ class MoreScreen extends ConsumerWidget {
           const FinanceScreen()),
       (Icons.verified_user_outlined, tr.compliance, tr.complianceSub,
           const ComplianceScreen()),
+      (Icons.ev_station, 'Charging stations', 'Status, rates & queue',
+          const StationManagementScreen()),
       (Icons.support_agent, tr.supportDisputes, tr.supportSub,
           const SupportScreen()),
       (Icons.insights, tr.analytics, tr.analyticsSub, const AnalyticsScreen()),

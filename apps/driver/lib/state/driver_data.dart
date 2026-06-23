@@ -3,6 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evc_core/evc_core.dart';
 
+/// Realtime reserve/queue entries (all stations) — drivers read their own entry
+/// + live position from this.
+final chargingQueueProvider =
+    StreamProvider<List<ChargingQueueEntry>>((ref) {
+  if (!EvcSupabase.isReady) return Stream.value(const []);
+  return EvcCharging.queueStream();
+});
+
 /// Driver earnings derived from `driver_earnings_view` (real; zero until trips
 /// are completed). Returns [today, week, month] summaries.
 final driverEarningsProvider = FutureProvider<List<EarningsSummary>>((ref) async {

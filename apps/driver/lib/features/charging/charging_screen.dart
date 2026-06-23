@@ -13,6 +13,12 @@ import '../../state/driver_data.dart';
 /// kWh delivered per 1% of battery (~60 kWh pack).
 const double _kWhPerPct = 0.6;
 
+/// Grace window (s) after full charge before the idle fee starts (demo-compressed).
+const int _graceTotal = 20;
+
+/// Real seconds per accrued idle "minute" (demo-compressed).
+const int _idleEverySec = 3;
+
 /// Charging tab — DEWA station map + a real **charging session** (Phase 1):
 /// start → simulated live meter (kWh + cost + battery %) → stop & settle.
 class ChargingScreen extends ConsumerStatefulWidget {
@@ -32,12 +38,39 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
   bool _full = false;
   Timer? _meter;
 
+  // Grace + idle penalty (after full charge).
+  int _graceSecs = 0;
+  int _idleMin = 0;
+  int _idleAccum = 0;
+  Timer? _idle;
+
   ChargingSession? _receipt; // last completed session (settled)
 
   @override
   void dispose() {
     _meter?.cancel();
+    _idle?.cancel();
     super.dispose();
+  }
+
+  // After full charge: a grace window, then the idle fee accrues per minute
+  // until the driver unplugs (stops). Demo-compressed.
+  void _startGraceIdle() {
+    _graceSecs = _graceTotal;
+    _idleMin = 0;
+    _idleAccum = 0;
+    _idle = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_graceSecs > 0) {
+        setState(() => _graceSecs--);
+      } else {
+        _idleAccum++;
+        if (_idleAccum >= _idleEverySec) {
+          _idleAccum = 0;
+          setState(() => _idleMin++);
+        }
+      }
+    });
   }
 
   // Simulated meter: each 2s tick adds one "minute" of charge at the station's
@@ -48,16 +81,18 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
     if (s == null) return;
     var kwh = _kwh + s.powerKw / 60.0;
     var pct = (s.startPct + kwh / _kWhPerPct).round();
-    if (pct >= s.targetPct) {
+    final reachedFull = pct >= s.targetPct;
+    if (reachedFull) {
       pct = s.targetPct;
       kwh = (s.targetPct - s.startPct) * _kWhPerPct;
-      _full = true;
       _meter?.cancel();
     }
     setState(() {
       _kwh = kwh;
       _pct = pct.clamp(0, 100);
+      if (reachedFull && !_full) _full = true;
     });
+    if (reachedFull && _idle == null) _startGraceIdle();
     EvcCharging.update(s.id, kwh, _pct); // persist (fire-and-forget)
   }
 
@@ -66,12 +101,16 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
     setState(() => _busy = true);
     try {
       final s = await EvcCharging.start(st.id!, targetPct: 100);
+      _idle?.cancel();
       setState(() {
         _session = s;
         _stationName = st.name;
         _kwh = s.kwh;
         _pct = s.startPct;
         _full = false;
+        _graceSecs = 0;
+        _idleMin = 0;
+        _idle = null;
         _receipt = null;
       });
       _meter = Timer.periodic(const Duration(seconds: 2), (_) => _tick());
@@ -87,18 +126,54 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
     }
   }
 
+  Future<void> _join(ChargingStation st) async {
+    if (st.id == null) return;
+    setState(() => _busy = true);
+    try {
+      await EvcCharging.joinQueue(st.id!);
+      ref.invalidate(chargingStationsProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _leave(String stationId) async {
+    setState(() => _busy = true);
+    try {
+      await EvcCharging.leaveQueue(stationId);
+      ref.invalidate(chargingStationsProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _stop() async {
     final s = _session;
     if (s == null) return;
     _meter?.cancel();
+    _idle?.cancel();
     setState(() => _busy = true);
     try {
-      // Pass the final meter reading so settle is exact (not dependent on the
-      // live ticks having persisted).
-      final done = await EvcCharging.stop(s.id, kwh: _kwh, pct: _pct);
+      // Pass the final meter reading + idle minutes so settle is exact.
+      final done =
+          await EvcCharging.stop(s.id, kwh: _kwh, pct: _pct, idleMin: _idleMin);
       setState(() {
         _session = null;
         _receipt = done;
+        _full = false;
+        _idle = null;
+        _idleMin = 0;
+        _graceSecs = 0;
       });
       ref.invalidate(currentDriverProvider);
       ref.invalidate(chargingStationsProvider);
@@ -112,11 +187,82 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
     }
   }
 
+  /// Trailing action for a station card — context-aware (charge / reserve /
+  /// join queue / charge-now), and disabled while another intent is active.
+  Widget _stationAction(
+      ChargingStation s, ChargingQueueEntry? myEntry, bool hasSession) {
+    if (hasSession) return const SizedBox.shrink();
+    if (myEntry != null) {
+      if (myEntry.stationId == s.id && myEntry.isReserved) {
+        return FilledButton(
+          onPressed: _busy ? null : () => _start(s),
+          style: FilledButton.styleFrom(minimumSize: const Size(96, 40)),
+          child: const Text('Charge now'),
+        );
+      }
+      if (myEntry.stationId == s.id) {
+        return const Chip(label: Text('In queue'));
+      }
+      return const SizedBox.shrink(); // one intent at a time
+    }
+    if (s.hasAvailability) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FilledButton(
+            onPressed: _busy ? null : () => _start(s),
+            style: FilledButton.styleFrom(
+                minimumSize: const Size(92, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12)),
+            child: const Text('Charge'),
+          ),
+          SizedBox(
+            height: 30,
+            child: TextButton(
+              onPressed: _busy ? null : () => _join(s),
+              child: const Text('Reserve'),
+            ),
+          ),
+        ],
+      );
+    }
+    return FilledButton(
+      onPressed: _busy ? null : () => _join(s),
+      style: FilledButton.styleFrom(
+          minimumSize: const Size(96, 40), backgroundColor: EvcColors.ink),
+      child: const Text('Join queue'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final driver = ref.watch(currentDriverProvider).value;
     final stationsAsync = ref.watch(chargingStationsProvider);
     final charging = _session != null;
+
+    // My reserve/queue entry (if any), from the realtime queue stream.
+    final queue = ref.watch(chargingQueueProvider).value ?? const [];
+    final uid = EvcSupabase.currentUserId;
+    final mine = uid == null
+        ? const <ChargingQueueEntry>[]
+        : queue.where((e) => e.driverId == uid).toList();
+    final myEntry = mine.isEmpty ? null : mine.first;
+    final stations = stationsAsync.value ?? const <ChargingStation>[];
+    String stationNameOf(String id) {
+      final m = stations.where((s) => s.id == id).toList();
+      return m.isEmpty ? 'the station' : m.first.name;
+    }
+
+    int myPosition() {
+      if (myEntry == null || myEntry.status != 'queued') return 0;
+      return queue
+              .where((e) =>
+                  e.stationId == myEntry.stationId &&
+                  e.status == 'queued' &&
+                  e.createdAt.isBefore(myEntry.createdAt))
+              .length +
+          1;
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Charging')),
@@ -157,8 +303,19 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
                 ratePerKwh: _session!.ratePerKwh,
                 targetPct: _session!.targetPct,
                 full: _full,
+                graceSecs: _graceSecs,
+                idleMin: _idleMin,
+                idleFeePerMin: _session!.idleFeePerMin,
                 busy: _busy,
                 onStop: _busy ? null : _stop,
+              )
+            else if (myEntry != null)
+              _QueuePanel(
+                reserved: myEntry.isReserved,
+                station: stationNameOf(myEntry.stationId),
+                position: myPosition(),
+                busy: _busy,
+                onLeave: _busy ? null : () => _leave(myEntry.stationId),
               )
             else if (_receipt != null)
               _ReceiptCard(
@@ -184,11 +341,7 @@ class _ChargingScreenState extends ConsumerState<ChargingScreen> {
                   for (final s in stations)
                     _StationCard(
                       station: s,
-                      // Can start only if it has a stall and we're not already
-                      // charging.
-                      onCharge: (!charging && s.hasAvailability && !_busy)
-                          ? () => _start(s)
-                          : null,
+                      action: _stationAction(s, myEntry, charging),
                     ),
                 ],
               ),
@@ -209,6 +362,9 @@ class _ActivePanel extends StatelessWidget {
     required this.ratePerKwh,
     required this.targetPct,
     required this.full,
+    required this.graceSecs,
+    required this.idleMin,
+    required this.idleFeePerMin,
     required this.busy,
     required this.onStop,
   });
@@ -219,12 +375,17 @@ class _ActivePanel extends StatelessWidget {
   final double ratePerKwh;
   final int targetPct;
   final bool full;
+  final int graceSecs;
+  final int idleMin;
+  final double idleFeePerMin;
   final bool busy;
   final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
     final cost = kwh * ratePerKwh;
+    final idling = full && graceSecs <= 0 && idleMin > 0;
+    final idleFee = idleMin * idleFeePerMin;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -268,13 +429,39 @@ class _ActivePanel extends StatelessWidget {
               _metric('AED ${ratePerKwh.toStringAsFixed(2)}', 'per kWh'),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            full
-                ? 'Charge complete — stop to free the stall and settle.'
-                : 'Dispatch is paused while you charge.',
-            style: const TextStyle(color: EvcColors.slate, fontSize: 13),
-          ),
+          const SizedBox(height: 8),
+          if (idling)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: EvcColors.danger.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(EvcRadius.sm),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      color: EvcColors.danger, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'Idle $idleMin min · +AED ${idleFee.toStringAsFixed(2)} — unplug to stop the fee',
+                        style: const TextStyle(
+                            color: EvcColors.danger,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13)),
+                  ),
+                ],
+              ),
+            )
+          else
+            Text(
+              !full
+                  ? 'Dispatch is paused while you charge.'
+                  : graceSecs > 0
+                      ? 'Fully charged · move within 0:${graceSecs.toString().padLeft(2, '0')} to avoid an idle fee.'
+                      : 'Fully charged — stop to free the stall and settle.',
+              style: const TextStyle(color: EvcColors.slate, fontSize: 13),
+            ),
           const SizedBox(height: 12),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: EvcColors.ink),
@@ -318,7 +505,6 @@ class _ReceiptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cost = session.cost ?? 0;
     final vat = session.vat ?? 0;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -342,7 +528,10 @@ class _ReceiptCard extends StatelessWidget {
           _row('Energy', '${session.kwh.toStringAsFixed(1)} kWh'),
           _row('Charge', '${session.startPct}% → ${session.endPct}%'),
           _row('Rate', 'AED ${session.ratePerKwh.toStringAsFixed(2)}/kWh'),
-          _row('Cost', 'AED ${cost.toStringAsFixed(2)}'),
+          _row('Energy cost', 'AED ${session.energyCost.toStringAsFixed(2)}'),
+          if (session.idleFee > 0)
+            _row('Idle fee (${session.idleMin} min)',
+                'AED ${session.idleFee.toStringAsFixed(2)}'),
           _row('VAT', 'AED ${vat.toStringAsFixed(2)}'),
           const Divider(height: 18),
           _row('Total', 'AED ${session.total.toStringAsFixed(2)}', bold: true),
@@ -435,9 +624,9 @@ class _StationPin extends StatelessWidget {
 }
 
 class _StationCard extends StatelessWidget {
-  const _StationCard({required this.station, this.onCharge});
+  const _StationCard({required this.station, required this.action});
   final ChargingStation station;
-  final VoidCallback? onCharge;
+  final Widget action;
 
   @override
   Widget build(BuildContext context) {
@@ -493,13 +682,70 @@ class _StationCard extends StatelessWidget {
                 ],
               ),
             ),
-            FilledButton(
-              onPressed: onCharge,
-              style: FilledButton.styleFrom(minimumSize: const Size(84, 40)),
-              child: const Text('Charge'),
-            ),
+            action,
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Reserve / queue status banner.
+class _QueuePanel extends StatelessWidget {
+  const _QueuePanel({
+    required this.reserved,
+    required this.station,
+    required this.position,
+    required this.busy,
+    required this.onLeave,
+  });
+
+  final bool reserved;
+  final String station;
+  final int position;
+  final bool busy;
+  final VoidCallback? onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = reserved ? EvcColors.primary : EvcColors.warning;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(EvcRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(reserved ? Icons.ev_station : Icons.hourglass_bottom,
+                  color: reserved ? EvcColors.primaryDark : EvcColors.warning),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                    reserved
+                        ? 'Stall reserved at $station'
+                        : 'In queue at $station',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 16)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            reserved
+                ? 'Tap Charge now on the station — held ~10 min.'
+                : 'Position $position — we’ll hold a stall when it’s your turn.',
+            style: const TextStyle(color: EvcColors.slate, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: onLeave,
+            child: Text(reserved ? 'Cancel reservation' : 'Leave queue'),
+          ),
+        ],
       ),
     );
   }

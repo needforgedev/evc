@@ -166,7 +166,7 @@ These shape everything downstream — record the final call and date.
 - [x] Range-aware dispatch — **real & exercised** (`dispatch_trip` only matches a driver whose `range_km ≥ trip distance`)
 - [x] Charging-station map (DEWA) — **real** stations from `charging_stations` (distance-sorted)
 - [x] "I'm charging" driver status — **real** (flips `vehicles.status` → charging + offline)
-- [~] **Charging-session lifecycle (Phase 1)** — real session: **start → simulated live meter (kWh + cost + battery %) → stop & settle** (`start/update/stop_charging` RPCs, `charging_sessions` with cost/VAT, per-station `price_per_kwh`); receipt + stall take/free. *(Phase 2: reserve/queue · idle penalty · Watanya margin · cross-sell · admin station mgmt; OCPP = hardware.)*
+- [x] **Charging-session lifecycle (Phase 1 + 2)** — real session: **start → simulated live meter (kWh + cost + battery%/range) → grace → idle penalty → stop & settle**; per-trip battery drain + on-charge refill; receipt (energy + idle fee); **Watanya 30% margin**; **reserve/queue** (`charging_queue`, live position, freed-stall promotion, realtime banner); **admin station mgmt** (status/queue + editable rate). *(OCPP = hardware; cross-sell = customer-app only.)*
 - [~] Charging-break / range-awareness hint — *static hint*
 - [~] Rider "battery-aware assurance" indicator — *Step 3 (rider tracking) will show the matched driver's real range*
 - [x] "CO₂ saved vs. petrol" — **real** per-trip `co2_saved_kg` (computed in `request_ride`); shown in ride history + powers `co2_savings_view`
