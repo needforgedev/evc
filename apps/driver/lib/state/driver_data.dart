@@ -68,12 +68,14 @@ final chargingStationsProvider =
     final lat = (r['lat'] as num).toDouble();
     final lng = (r['lng'] as num).toDouble();
     return ChargingStation(
+      id: r['id'] as String?,
       name: r['name'] as String,
       network: (r['network'] as String?) ?? 'DEWA EV Green Charger',
       distanceKm: _haversineKm(dLat, dLng, lat, lng),
       availableStalls: (r['available_stalls'] as num?)?.toInt() ?? 0,
       totalStalls: (r['total_stalls'] as num?)?.toInt() ?? 0,
       powerKw: (r['power_kw'] as num?)?.toInt() ?? 0,
+      pricePerKwh: (r['price_per_kwh'] as num?)?.toDouble() ?? 0.70,
       // Rough normalisation of Dubai lat/lng → 0..1 for the placeholder map.
       mapX: (((lng - 55.10) / 0.30).clamp(0.05, 0.95)).toDouble(),
       mapY: (((25.30 - lat) / 0.30).clamp(0.05, 0.95)).toDouble(),

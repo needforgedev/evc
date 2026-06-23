@@ -28,4 +28,5 @@ export 'src/auth/rider_registration.dart';
 export 'src/trips/active_trip.dart';
 export 'src/trips/evc_trips.dart';
 export 'src/pricing/evc_pricing.dart';
+export 'src/charging/evc_charging.dart';
 export 'src/places/evc_saved_places.dart';

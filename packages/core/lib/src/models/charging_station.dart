@@ -13,14 +13,21 @@ class ChargingStation {
     required this.powerKw,
     required this.mapX,
     required this.mapY,
+    this.id,
+    this.pricePerKwh = 0.70,
   });
 
+  /// DB id (null only for mock data).
+  final String? id;
   final String name;
   final String network;
   final double distanceKm;
   final int availableStalls;
   final int totalStalls;
   final int powerKw;
+
+  /// End-customer charge rate (AED per kWh).
+  final double pricePerKwh;
   final double mapX;
   final double mapY;
 
